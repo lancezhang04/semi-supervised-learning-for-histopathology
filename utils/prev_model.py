@@ -1,3 +1,6 @@
+# Code taken from: https://machinelearningknowledge.ai/keras-implementation-of-resnet-50-architecture-from-scratch/
+
+
 from keras.models import Model
 from keras.layers import Input, Add, Activation, ZeroPadding2D, BatchNormalization, Dense, Flatten, \
     Conv2D, AveragePooling2D, MaxPooling2D
@@ -101,7 +104,7 @@ def ResNet50(input_shape=(224, 224, 3)):
     return model
 
 
-def ResNet50_with_classification_head(input_shape=(224, 224, 3), num_classes=11, learning_rate=5e-5, verbose=0):
+def ResNet50_with_classification_head(input_shape=(224, 224, 3), num_outputs=11, verbose=0):
     base_model = ResNet50(input_shape)
 
     # classification head
@@ -109,10 +112,10 @@ def ResNet50_with_classification_head(input_shape=(224, 224, 3), num_classes=11,
     headModel = Flatten()(headModel)
     headModel = Dense(256, activation='relu', name='fc1', kernel_initializer=glorot_uniform(seed=0))(headModel)
     headModel = Dense(128, activation='relu', name='fc2', kernel_initializer=glorot_uniform(seed=0))(headModel)
-    headModel = Dense(num_classes, activation='softmax', name='fc3', kernel_initializer=glorot_uniform(seed=0))(
+    headModel = Dense(num_outputs, activation='softmax', name='fc3', kernel_initializer=glorot_uniform(seed=0))(
         headModel)
     model = Model(inputs=base_model.input, outputs=headModel)
-    model.compile(optimizer=Adam(lr=learning_rate), loss='categorical_crossentropy', metrics=['acc'])
+    # model.compile(optimizer=Adam(lr=learning_rate), loss='categorical_crossentropy', metrics=['acc'])
 
     if verbose:
         model.summary()
