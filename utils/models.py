@@ -225,7 +225,7 @@ class ResnetBuilder(object):
                                  strides=(1, 1))(block)
         flatten1 = Flatten()(pool2)
 
-        # Custom code: more dense layers to improve accuracy
+        # More dense layers to improve accuracy
         dense1 = Dense(units=256, kernel_initializer='he_normal', activation='relu')(flatten1)
         dense2 = Dense(units=128, kernel_initializer='he_normal', activation='relu')(dense1)
         # ------------------------------------------------ #

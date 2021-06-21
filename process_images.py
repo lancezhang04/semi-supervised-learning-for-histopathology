@@ -4,11 +4,12 @@ import cv2
 import os
 
 
-# need to update code to handle uneven number of classes in train and test
-
 csv_folder = 'NuCLS/csv'
 image_folder = 'NuCLS/rgb'
 train_split_file = 'NuCLS/train_test_splits/fold_1_train.csv'
+# only using classes with 1,000+ images
+classes_used = ['tumor', 'fibroblast', 'lymphocyte', 'plasma_cell', 'macrophage']
+
 # test_split_file = 'NuCLS/train_test_splits/fold_1_test.csv'
 size = 64  # the length of the sides of the cropped out cell image, must be even
 half_size = size // 2
@@ -52,6 +53,11 @@ for csv in tqdm(all_csv, ncols=70):
 
         # test if the cell has an ambiguous nuclei
         if cell_group[i] in ['unlabeled', 'correction_unlabeled', 'apoptotic_body', 'correction_apoptotic_body']:
+            unusable_count += 1
+            continue
+
+        # test if the cell belongs to the classes used
+        if cell_group[i] not in classes_used:
             unusable_count += 1
             continue
 

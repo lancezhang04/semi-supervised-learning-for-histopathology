@@ -5,10 +5,20 @@ import numpy as np
 import cv2
 
 
-def draw_image(path):
+def load_image(path):
+    # Return image as a 3d numpy array
     img = cv2.imread(path)
     img = np.array(img)
-    plt.imshow(img)
+    return img
+
+
+def draw_image(path=None, image=None):
+    if path:
+        plt.imshow(load_image(path))
+    elif image is not None:
+        plt.imshow(image)
+    else:
+        raise ValueError
 
 
 def draw_box(x_min, y_min, x_max, y_max):

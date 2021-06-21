@@ -26,7 +26,7 @@ plt.plot(history['acc'], label='train accuracy')
 
 plt.plot([max_val_epoch, max_val_epoch], [min(history['val_acc']), max(history['acc'])], '--r', alpha=0.3, label='early stop epoch')
 plt.scatter([max_val_epoch], [max_val_acc], s=50, c='r', label='maximum validation accuracy: %.5f' % max_val_acc)
-plt.scatter([max_val_epoch], [history['test_acc']], s=50, c='b', label='maximum test accuracy: %.5f' % history['test_acc'])
+plt.scatter([max_val_epoch], [history['test_acc']], s=50, c='b', label='test accuracy: %.5f' % history['test_acc'])
 
 plt.legend(loc='best')
 plt.show()

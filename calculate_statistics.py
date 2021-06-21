@@ -5,7 +5,7 @@ import pandas as pd
 import os
 
 
-count_group_and_type = False
+count_group_and_type = True
 show_box_sizes = False
 
 if count_group_and_type:
