@@ -35,11 +35,11 @@ from PIL.ImageFilter import GaussianBlur
 from PIL import ImageEnhance, Image
 
 preprocessing_config = {
-    'image_size': (64, 64),
     'color_jittering': 0.8,
     'color_dropping_probability': 0.2,
     'brightness_adjustment_max_intensity': 0.4,
     'contrast_adjustment_max_intensity': 0.4,
+    'color_adjustment_max_intensity': 0.2,
     'hue_adjustment_max_intensity': 0.1,
     'gaussian_blurring_probability': [1.0, 0.1],  # the implementation might be different from the original paper
     'solarization_probability': [0, 0.2]
@@ -87,7 +87,7 @@ def jitter_color(image, config, verbose=0,
     * Brightness
     * Contrast
     * Saturation (color)
-    (Hue adjustment not yet implemented)
+    * Hue adjustment
     The transformations are applied at random order
 
     :param config: configuration used
@@ -105,7 +105,7 @@ def jitter_color(image, config, verbose=0,
     if not contrast_factor:
         contrast_factor = 1 + (random() - 0.5) * 2 * config['contrast_adjustment_max_intensity']
     if not color_factor:
-        color_factor = 1 + (random() - 0.5) * 2 * config['contrast_adjustment_max_intensity']
+        color_factor = 1 + (random() - 0.5) * 2 * config['color_adjustment_max_intensity']
     if not hue_factor:
         hue_factor = 1 + (random() - 0.5) * 2 * config['hue_adjustment_max_intensity']
     if verbose > 0:
@@ -177,11 +177,12 @@ def get_preprocessing_function(config, view, verbose=0):
     return preprocessing_function
 
 
-def get_generator(config, view, verbose=0):
+def get_generator(config, view, verbose=0, validation_split=None):
     generator = ImageDataGenerator(
         horizontal_flip=True,  # 50% probability
         vertical_flip=True,  # 50% probability
-        preprocessing_function=get_preprocessing_function(config=config, view=view, verbose=verbose)
+        preprocessing_function=get_preprocessing_function(config=config, view=view, verbose=verbose),
+        validation_split=validation_split
     )
     return generator
 
@@ -190,19 +191,19 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     RANDOM_SEED = 42
+    image_size = 64
 
-    image_size = preprocessing_config['image_size']
-    gen_1 = get_generator(preprocessing_config, view=0, verbose=0)
-    datagen_1 = gen_1.flow_from_directory('../NuCLS_64/test', seed=RANDOM_SEED, target_size=image_size, batch_size=10)
-    gen_2 = get_generator(preprocessing_config, view=1, verbose=0)
-    datagen_2 = gen_2.flow_from_directory('../NuCLS_64/test', seed=RANDOM_SEED, target_size=image_size, batch_size=10)
+    gen_a = get_generator(preprocessing_config, view=0, verbose=0)
+    datagen_a = gen_a.flow_from_directory('../NuCLS_64_5/test', seed=RANDOM_SEED, target_size=image_size, batch_size=10)
+    gen_b = get_generator(preprocessing_config, view=1, verbose=0)
+    datagen_b = gen_b.flow_from_directory('../NuCLS_64_5/test', seed=RANDOM_SEED, target_size=image_size, batch_size=10)
 
-    ims_1, _ = datagen_1.next()
-    ims_2, _ = datagen_2.next()
+    ims_a, _ = datagen_a.next()
+    ims_b, _ = datagen_b.next()
 
-    for idx in range(len(ims_1)):
+    for idx in range(len(ims_a)):
         fig, axs = plt.subplots(2)
-        axs[0].imshow(ims_1[idx] / 2 + 0.5)
-        axs[1].imshow(ims_2[idx] / 2 + 0.5)
+        axs[0].imshow(ims_a[idx] / 2 + 0.5)
+        axs[1].imshow(ims_b[idx] / 2 + 0.5)
 
         plt.show()

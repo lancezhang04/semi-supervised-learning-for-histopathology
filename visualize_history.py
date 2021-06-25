@@ -1,56 +1,37 @@
 import pickle
-from optparse import OptionParser
 import matplotlib.pyplot as plt
-plt.style.use('dark_background')
+import numpy as np
 
 
-parser = OptionParser()
-parser.add_option('-p', '--path', dest='path', help='path to .pickle file', default='history.pickle')
-(options, args) = parser.parse_args()
+HISTORY_PATH = 'benchmarks/barlow_0.1_history.pickle'
 
 
-with open(options.path, 'rb') as file:
+with open(HISTORY_PATH, 'rb') as file:
     history = pickle.load(file)
-    print(history.keys())
 
-max_val_acc = max(history['val_acc'])
-max_val_epoch = history['val_acc'].index(max_val_acc)
-print('Maximum validation accuracy: %.5f' % max_val_acc)
-print('Test accuracy: %.5f' % history['test_acc'])
+loss = history['loss']
+val_loss = history['val_loss']
+MCC = history['MCC']
+val_MCC = history['val_MCC']
+acc = history['acc']
+val_acc = history['val_acc']
+top_2_accuracy = history['top_2_accuracy']
+val_top_2_accuracy = history['val_top_2_accuracy']
 
-plt.figure(figsize=(10, 5))
-plt.title('ResNet50 64x64 Images')
+early_stop_epoch = np.argmax(val_acc)
 
-plt.plot(history['val_acc'], label='validation accuracy')
-plt.plot(history['acc'], label='train accuracy')
 
-plt.plot([max_val_epoch, max_val_epoch], [min(history['val_acc']), max(history['acc'])], '--r', alpha=0.3, label='early stop epoch')
-plt.scatter([max_val_epoch], [max_val_acc], s=50, c='r', label='maximum validation accuracy: %.5f' % max_val_acc)
-plt.scatter([max_val_epoch], [history['test_acc']], s=50, c='b', label='test accuracy: %.5f' % history['test_acc'])
+plt.figure(figsize=(10, 6))
 
-plt.legend(loc='best')
+plt.plot(acc, label='Training accuracy')
+plt.plot(MCC, label='Training MCC')
+plt.plot(val_acc, label='Validation accuracy')
+plt.plot(val_MCC, label='Validation MCC')
+plt.plot([early_stop_epoch, early_stop_epoch], [0, 1], label='Early stop epoch')
+
+plt.legend()
 plt.show()
 
 
-plt.figure(figsize=(10, 5))
-plt.title('ResNet50 64x64 Images')
-
-plt.plot(history['val_loss'], label='validation loss')
-plt.plot(history['loss'], label='train loss')
-
-plt.plot([max_val_epoch, max_val_epoch], [min(history['loss']), max(history['val_loss'])], '--r', alpha=0.3, label='early stop epoch')
-
-plt.legend(loc='best')
-plt.show()
-
-
-model_names = ['ResNet18', 'ResNet34', 'ResNet50', 'ResNet101', 'ResNet152']
-test_acc = [0.7248, 0.7296, 0.7357, 0.7200, 0.7313]
-
-plt.figure(figsize=(10, 5))
-plt.title('Accuracies of ResNet Models on 64x64 Dataset')
-plt.bar(model_names, test_acc)
-plt.ylim([min(test_acc) - 0.05, max(test_acc) + 0.05])
-for i, v in enumerate(test_acc):
-    plt.gca().text(i - 0.05, v + 0.003, str(v), color='white', fontweight='bold')
-plt.show()
+print(val_acc[early_stop_epoch], val_top_2_accuracy[early_stop_epoch], val_MCC[early_stop_epoch], val_loss[early_stop_epoch])
+print(acc[early_stop_epoch], top_2_accuracy[early_stop_epoch], MCC[early_stop_epoch], loss[early_stop_epoch])

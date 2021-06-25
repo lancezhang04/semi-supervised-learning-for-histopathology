@@ -162,7 +162,8 @@ def _handle_dim_ordering():
     global ROW_AXIS
     global COL_AXIS
     global CHANNEL_AXIS
-    if K.image_dim_ordering() == 'tf':
+
+    if K.image_data_format() == 'channels_last':
         ROW_AXIS = 1
         COL_AXIS = 2
         CHANNEL_AXIS = 3
@@ -183,7 +184,7 @@ def _get_block(identifier):
 
 class ResnetBuilder(object):
     @staticmethod
-    def build(input_shape, num_outputs, block_fn, repetitions):
+    def build(input_shape, num_outputs, block_fn, repetitions, output_representation=False, representation_size=512):
         """Builds a custom ResNet like architecture.
         Args:
             input_shape: The input shape in the form (nb_channels, nb_rows, nb_cols)
@@ -194,6 +195,7 @@ class ResnetBuilder(object):
                 At each block unit, the number of filters are doubled and the input size is halved
         Returns:
             The keras `Model`.
+            :param output_representation
         """
         _handle_dim_ordering()
         if len(input_shape) != 3:
@@ -225,34 +227,45 @@ class ResnetBuilder(object):
                                  strides=(1, 1))(block)
         flatten1 = Flatten()(pool2)
 
-        # More dense layers to improve accuracy
-        dense1 = Dense(units=256, kernel_initializer='he_normal', activation='relu')(flatten1)
-        dense2 = Dense(units=128, kernel_initializer='he_normal', activation='relu')(dense1)
-        # ------------------------------------------------ #
+        if not output_representation:
+            # More dense layers to improve accuracy
+            dense1 = Dense(units=256, kernel_initializer='he_normal', activation='relu')(flatten1)
+            dense2 = Dense(units=128, kernel_initializer='he_normal', activation='relu')(dense1)
+            # ------------------------------------------------ #
 
+            dense3 = Dense(units=num_outputs, kernel_initializer="he_normal",
+                          activation="softmax")(dense2)
 
-        dense3 = Dense(units=num_outputs, kernel_initializer="he_normal",
-                      activation="softmax")(dense2)
-
-        model = Model(inputs=input, outputs=dense3)
-        return model
-
-    @staticmethod
-    def build_resnet_18(input_shape, num_outputs):
-        return ResnetBuilder.build(input_shape, num_outputs, basic_block, [2, 2, 2, 2])
-
-    @staticmethod
-    def build_resnet_34(input_shape, num_outputs):
-        return ResnetBuilder.build(input_shape, num_outputs, basic_block, [3, 4, 6, 3])
+            model = Model(inputs=input, outputs=dense3)
+            return model
+        else:
+            dense1 = Dense(units=representation_size, kernel_initializer='he_normal', activation='relu')(flatten1)
+            dense2 = Dense(units=representation_size, kernel_initializer='he_normal', activation='relu')(dense1)
+            dense3 = Dense(units=representation_size, kernel_initializer='he_normal', activation='relu')(dense2)
+            model = Model(inputs=input, outputs=dense3)
+            return model
 
     @staticmethod
-    def build_resnet_50(input_shape, num_outputs):
-        return ResnetBuilder.build(input_shape, num_outputs, bottleneck, [3, 4, 6, 3])
+    def build_resnet_18(input_shape, num_outputs, output_representation=True, representation_size=512):
+        return ResnetBuilder.build(input_shape, num_outputs, basic_block, [2, 2, 2, 2],
+                                   output_representation=output_representation, representation_size=representation_size)
 
     @staticmethod
-    def build_resnet_101(input_shape, num_outputs):
-        return ResnetBuilder.build(input_shape, num_outputs, bottleneck, [3, 4, 23, 3])
+    def build_resnet_34(input_shape, num_outputs, output_representation=True, representation_size=512):
+        return ResnetBuilder.build(input_shape, num_outputs, basic_block, [3, 4, 6, 3],
+                                   output_representation=output_representation, representation_size=representation_size)
 
     @staticmethod
-    def build_resnet_152(input_shape, num_outputs):
-        return ResnetBuilder.build(input_shape, num_outputs, bottleneck, [3, 8, 36, 3])
+    def build_resnet_50(input_shape, num_outputs, output_representation=True, representation_size=512):
+        return ResnetBuilder.build(input_shape, num_outputs, bottleneck, [3, 4, 6, 3],
+                                   output_representation=output_representation, representation_size=representation_size)
+
+    @staticmethod
+    def build_resnet_101(input_shape, num_outputs, output_representation=True, representation_size=512):
+        return ResnetBuilder.build(input_shape, num_outputs, bottleneck, [3, 4, 23, 3],
+                                   output_representation=output_representation, representation_size=representation_size)
+
+    @staticmethod
+    def build_resnet_152(input_shape, num_outputs, output_representation=True, representation_size=512):
+        return ResnetBuilder.build(input_shape, num_outputs, bottleneck, [3, 8, 36, 3],
+                                   output_representation=output_representation, representation_size=representation_size)

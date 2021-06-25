@@ -47,7 +47,7 @@ def visualize_image(image_path, csv_path):
 
 
 if __name__ == '__main__':
-    image_path = '../NuCLS/rgb/TCGA-A2-A0SX-DX1_id-5ea40b05ddda5f839899743b_left-54812_top-58969_bottom-59272_right-55081.png'
-    file_path = '../NuCLS/csv/TCGA-A2-A0SX-DX1_id-5ea40b05ddda5f839899743b_left-54812_top-58969_bottom-59272_right-55081.csv'
+    image_path = '../datasets/NuCLS/rgb/TCGA-A2-A0SX-DX1_id-5ea40b05ddda5f839899743b_left-54812_top-58969_bottom-59272_right-55081.png'
+    file_path = '../datasets/NuCLS/csv/TCGA-A2-A0SX-DX1_id-5ea40b05ddda5f839899743b_left-54812_top-58969_bottom-59272_right-55081.csv'
     # display_image_with_box(image_path, 154, 270, 234, 350)
     visualize_image(image_path, file_path)

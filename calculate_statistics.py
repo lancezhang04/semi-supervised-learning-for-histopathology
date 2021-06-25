@@ -36,7 +36,7 @@ if count_group_and_type:
     print('group_count:', group_count)
 
 if show_box_sizes:
-    csv_dir = 'NuCLS/csv'
+    csv_dir = 'datasets/NuCLS/csv'
     all_csv = os.listdir(csv_dir)
     all_csv.remove('ALL_FOV_LOCATIONS.csv')
 

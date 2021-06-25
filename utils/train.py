@@ -63,8 +63,8 @@ if __name__ == '__main__':
     # )
 
     generate_train_test_documents(
-        '../NuCLS/train_test_splits/fold_1_train.csv',
-        '../NuCLS/train_test_splits/fold_1_test.csv',
+        '../datasets/NuCLS/train_test_splits/fold_1_train.csv',
+        '../datasets/NuCLS/train_test_splits/fold_1_test.csv',
         '../NuCls/rgb',
         '../NuCls/csv',
     )

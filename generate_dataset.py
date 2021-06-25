@@ -4,11 +4,19 @@ import cv2
 import os
 
 
-csv_folder = 'NuCLS/csv'
-image_folder = 'NuCLS/rgb'
-train_split_file = 'NuCLS/train_test_splits/fold_1_train.csv'
+csv_folder = 'datasets/NuCLS/csv'
+image_folder = 'datasets/NuCLS/rgb'
+train_split_file = 'datasets/NuCLS/train_test_splits/fold_1_train.csv'
 # only using classes with 1,000+ images
-classes_used = ['tumor', 'fibroblast', 'lymphocyte', 'plasma_cell', 'macrophage']
+classes_used = [
+    'tumor',
+    'fibroblast',
+    'lymphocyte',
+    'plasma_cell',
+    'macrophage',
+    'apoptotic_body',
+    'vascular_endothelium'
+]
 
 # test_split_file = 'NuCLS/train_test_splits/fold_1_test.csv'
 size = 64  # the length of the sides of the cropped out cell image, must be even
@@ -21,6 +29,14 @@ all_csv.remove('ALL_FOV_LOCATIONS.csv')  # does not contain bbox information
 
 train_slides = pd.read_csv(train_split_file)['slide_name'].to_list()
 # test_slides = pd.read_csv(test_split_file)['slide_name'].to_list()
+
+root_folder = f'NuCLS_{size}_{len(classes_used)}_apoptotic'
+try:
+    os.mkdir(root_folder)
+    for split in ['train', 'test']:
+        os.mkdir(os.path.join(root_folder, split))
+except FileExistsError:
+    pass
 
 for csv in tqdm(all_csv, ncols=70):
     root_name = csv.split('.')[0]
@@ -52,7 +68,7 @@ for csv in tqdm(all_csv, ncols=70):
             continue
 
         # test if the cell has an ambiguous nuclei
-        if cell_group[i] in ['unlabeled', 'correction_unlabeled', 'apoptotic_body', 'correction_apoptotic_body']:
+        if cell_group[i] in ['unlabeled', 'correction_unlabeled']:
             unusable_count += 1
             continue
 
@@ -68,9 +84,8 @@ for csv in tqdm(all_csv, ncols=70):
             split = 'test'
 
         cell_img = img[y_center - half_size + 1: y_center + half_size + 1, x_center - half_size + 1: x_center + half_size + 1, :]
-        target_folder = f'NuCLS_{size}/{split}/{cell_group[i]}'
+        target_folder = os.path.join(root_folder, f'{split}/{cell_group[i]}')
         if not os.path.exists(target_folder):
-            # the first/second level folder needs to already exist
             os.mkdir(target_folder)
 
         cv2.imwrite(os.path.join(target_folder, f'{root_name}_{i}.png'), cell_img)

@@ -52,7 +52,7 @@ model_functions = {
 
 train_path = f'NuCLS_{size}/train'
 test_path = f'NuCLS_{size}/test'
-save_dir = 'trained_models'
+save_dir = '../trained_models'
 
 class_names = os.listdir(train_path)
 class_names_test = os.listdir(test_path)
