@@ -3,7 +3,7 @@ import logging
 from keras.preprocessing.image import ImageDataGenerator
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.optimizers import Adam
-from utils.prev_model import ResNet50_with_classification_head
+from prev.utils.prev_model import ResNet50_with_classification_head
 from optparse import OptionParser
 from utils.models import ResnetBuilder
 import pickle

@@ -1,7 +1,7 @@
-from utils import image_augmentation
-import utils.lr_scheduler
-from utils import resnet20
-from utils.loss import compute_loss
+from utils.image import image_augmentation
+import utils.train.lr_scheduler
+from utils.models import resnet20
+from utils.train.loss import compute_loss
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, Callback
 import logging
@@ -27,7 +27,7 @@ EPOCHS = 200
 IMAGE_SHAPE = [64, 64, 3]
 PROJECTOR_DIMENSIONALITY = 2048
 ROOT_PATH = 'datasets/NuCLS_64_7'
-MODEL_WEIGHTS = 'trained_models/resnet_encoders/best_model_2048_181.36.h5'
+MODEL_WEIGHTS = 'trained_models/encoder_2048.h5'
 SAVE_DIR = 'trained_models'
 PREPROCESSING_CONFIG = {
     'color_jittering': 0.8,
@@ -104,7 +104,7 @@ if MODEL_WEIGHTS:
 WARMUP_EPOCHS = int(EPOCHS * 0.1)
 WARMUP_STEPS = int(WARMUP_EPOCHS * STEPS_PER_EPOCH)
 
-lr_decay_fn = utils.lr_scheduler.WarmUpCosine(
+lr_decay_fn = utils.train.lr_scheduler.WarmUpCosine(
     learning_rate_base=1e-3,
     total_steps=EPOCHS * STEPS_PER_EPOCH,
     warmup_learning_rate=0.0,
@@ -128,7 +128,6 @@ class BarlowTwins(tf.keras.Model):
     def train_step(self, data):
         # Unpack the data.
         ds_one, ds_two = data
-        print('data acquired')
 
         # Forward pass through the encoder and predictor.
         with tf.GradientTape() as tape:
@@ -158,7 +157,7 @@ barlow_twins.compile(optimizer=optimizer)
 class ModelCheckpoint(Callback):
     def __init__(self):
         super().__init__()
-        self.save_dir = os.path.join(SAVE_DIR, 'best_model.h5')
+        self.save_dir = os.path.join(SAVE_DIR, f'encoder_{PROJECTOR_DIMENSIONALITY}.h5')
         self.min_loss = 1e5
 
     def on_epoch_end(self, epoch, logs=None):
@@ -178,11 +177,3 @@ history = barlow_twins.fit(
     steps_per_epoch=STEPS_PER_EPOCH,
     callbacks=[es, mc]
 )
-
-if VERBOSE:
-    print('Training complete')
-    barlow_twins.summary()
-
-# Save history
-with open(os.path.join(SAVE_DIR, 'benchmarks/history.pickle'), 'wb') as file:
-    pickle.dump(history.history, file)

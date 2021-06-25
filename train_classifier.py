@@ -5,8 +5,8 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.keras.models import Model
 from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 import tensorflow as tf
-from utils import resnet20
-from utils import lr_scheduler
+from utils.models import resnet20
+from utils.train import lr_scheduler
 import logging
 import pickle
 import os
