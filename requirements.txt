@@ -10,4 +10,5 @@ seaborn==0.11.1
 sklearn==0.0
 tensorflow==2.3.0
 tensorflow-addons==0.13.0
+silence-tensorflow==1.1.1
 tqdm==4.61.0

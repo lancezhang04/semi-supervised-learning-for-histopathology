@@ -1,20 +1,12 @@
 from utils.image import image_augmentation
 import utils.train.lr_scheduler
 from utils.models import resnet20
-from utils.train.loss import compute_loss
+from utils.models.barlow_twins import BarlowTwins
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, Callback
-import logging
 import pickle
 import os
 
-
-# I edited the source code of numpy to mitigate a bug/issue
-# E:\Northwestern\NuCLS Classification\venv_2\Lib\site-packages\keras_preprocessing\image\iterator.py
-# Revert the change later if it causes any issues...
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-logging.getLogger("tensorflow").setLevel(logging.CRITICAL)
 
 # ==================================================================================================================== #
 # Configuration
@@ -22,13 +14,14 @@ logging.getLogger("tensorflow").setLevel(logging.CRITICAL)
 
 VERBOSE = 1
 BATCH_SIZE = 128
-PATIENCE = 10
-EPOCHS = 200
+PATIENCE = 30
+EPOCHS = 120
 IMAGE_SHAPE = [64, 64, 3]
 PROJECTOR_DIMENSIONALITY = 2048
-ROOT_PATH = 'datasets/NuCLS_64_7'
-MODEL_WEIGHTS = 'trained_models/encoder_2048.h5'
-SAVE_DIR = 'trained_models'
+# ROOT_PATH = 'datasets/NuCLS_64_7_grouped/train'
+ROOT_PATH = 'datasets/7/NuCLS_64_7'  # 'datasets/NuCLS_64_7'
+MODEL_WEIGHTS = None  # 'trained_models/encoder_2048.h5'
+SAVE_DIR = ''  # 'trained_models'
 PREPROCESSING_CONFIG = {
     'color_jittering': 0.8,
     'color_dropping_probability': 0.2,
@@ -113,36 +106,6 @@ lr_decay_fn = utils.train.lr_scheduler.WarmUpCosine(
 optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
 
 
-# Define barlow twins
-class BarlowTwins(tf.keras.Model):
-    def __init__(self, encoder, lambd=5e-3):
-        super(BarlowTwins, self).__init__()
-        self.encoder = encoder
-        self.lambd = lambd
-        self.loss_tracker = tf.keras.metrics.Mean(name="loss")
-
-    @property
-    def metrics(self):
-        return [self.loss_tracker]
-
-    def train_step(self, data):
-        # Unpack the data.
-        ds_one, ds_two = data
-
-        # Forward pass through the encoder and predictor.
-        with tf.GradientTape() as tape:
-            z_a, z_b = self.encoder(ds_one, training=True), self.encoder(ds_two, training=True)
-            loss = compute_loss(z_a, z_b, self.lambd)
-
-        # Compute gradients and update the parameters.
-        gradients = tape.gradient(loss, self.encoder.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.encoder.trainable_variables))
-
-        # Monitor loss.
-        self.loss_tracker.update_state(loss)
-        return {"loss": self.loss_tracker.result()}
-
-
 # Get model
 resnet_enc.trainable = True
 barlow_twins = BarlowTwins(resnet_enc)
@@ -177,3 +140,6 @@ history = barlow_twins.fit(
     steps_per_epoch=STEPS_PER_EPOCH,
     callbacks=[es, mc]
 )
+
+with open('trained_models/resnet_classifiers/1024/history.pickle', 'wb') as file:
+    pickle.dump(history.history, file)

@@ -4,10 +4,15 @@ import cv2
 import os
 
 
-csv_folder = 'datasets/NuCLS/csv'
-image_folder = 'datasets/NuCLS/rgb'
-train_split_file = 'datasets/NuCLS/train_test_splits/fold_1_train.csv'
-# only using classes with 1,000+ images
+# For when using Colab
+datasets_dir = 'drive/MyDrive/SSL'
+root_dir = os.path.join(datasets_dir, 'datasets/NuCLS')
+print(root_dir)
+
+csv_dir = os.path.join(root_dir, 'csv')
+image_dir = os.path.join(root_dir, 'rgb')
+train_split_file = os.path.join(root_dir, 'train_test_splits/fold_1_train.csv')
+
 classes_used = [
     'tumor',
     'fibroblast',
@@ -18,19 +23,31 @@ classes_used = [
     'vascular_endothelium'
 ]
 
-# test_split_file = 'NuCLS/train_test_splits/fold_1_test.csv'
+group_cells = True
+cell_groups = {
+    'tumor': 'tumor',
+    'fibroblast': 'stromal',
+    'vascular_endothelium': 'stromal',
+    'macrophage': 'stromal',
+    'lymphocyte': 'stils',
+    'plasma_cell': 'stils',
+    'apoptotic_body': 'apoptotic_body'
+}
+
 size = 64  # the length of the sides of the cropped out cell image, must be even
 half_size = size // 2
 unusable_count = 0  # number of bounding boxes that cannot be cropped into an image
 usable_count = 0  # number of usable bonding boxes
 
-all_csv = os.listdir(csv_folder)
+all_csv = os.listdir(csv_dir)
 all_csv.remove('ALL_FOV_LOCATIONS.csv')  # does not contain bbox information
 
 train_slides = pd.read_csv(train_split_file)['slide_name'].to_list()
-# test_slides = pd.read_csv(test_split_file)['slide_name'].to_list()
 
-root_folder = f'NuCLS_{size}_{len(classes_used)}_apoptotic'
+root_folder = f'datasets/NuCLS_{size}_{len(classes_used)}{"_grouped" if group_cells else ""}'
+root_folder = os.path.join(datasets_dir, root_folder)
+print(root_folder)
+
 try:
     os.mkdir(root_folder)
     for split in ['train', 'test']:
@@ -40,19 +57,19 @@ except FileExistsError:
 
 for csv in tqdm(all_csv, ncols=70):
     root_name = csv.split('.')[0]
-    image_dir = os.path.join(image_folder, root_name + '.png')
-    csv_dir = os.path.join(csv_folder, csv)
+    image_path = os.path.join(image_dir, root_name + '.png')
+    csv_path = os.path.join(csv_dir, csv)
 
     # load image
-    img = cv2.imread(image_dir)
+    img = cv2.imread(image_path)
     img_width, img_height = img.shape[1], img.shape[0]
 
     # load bounding box information
-    df = pd.read_csv(csv_dir)
+    df = pd.read_csv(csv_path)
     num_bboxes = len(df)
     x_min, x_max = df['xmin'].to_list(), df['xmax'].to_list()
     y_min, y_max = df['ymin'].to_list(), df['ymax'].to_list()
-    cell_group = [s[11:] if s.startswith('correction_') else s for s in df['group'].to_list()]
+    cell_classes = [s[11:] if s.startswith('correction_') else s for s in df['group'].to_list()]
 
     for i in range(num_bboxes):
         x_center = int((x_max[i] + x_min[i]) / 2)
@@ -67,13 +84,9 @@ for csv in tqdm(all_csv, ncols=70):
             unusable_count += 1
             continue
 
-        # test if the cell has an ambiguous nuclei
-        if cell_group[i] in ['unlabeled', 'correction_unlabeled']:
-            unusable_count += 1
-            continue
-
         # test if the cell belongs to the classes used
-        if cell_group[i] not in classes_used:
+        cell_class = cell_classes[i]
+        if cell_class not in classes_used:
             unusable_count += 1
             continue
 
@@ -83,8 +96,11 @@ for csv in tqdm(all_csv, ncols=70):
         else:
             split = 'test'
 
-        cell_img = img[y_center - half_size + 1: y_center + half_size + 1, x_center - half_size + 1: x_center + half_size + 1, :]
-        target_folder = os.path.join(root_folder, f'{split}/{cell_group[i]}')
+        cell_img = img[y_center - half_size + 1: y_center + half_size + 1,
+                       x_center - half_size + 1: x_center + half_size + 1, :]
+
+        folder_name = cell_class if not group_cells else cell_groups[cell_class]
+        target_folder = os.path.join(root_folder, f'{split}/{folder_name}')
         if not os.path.exists(target_folder):
             os.mkdir(target_folder)
 

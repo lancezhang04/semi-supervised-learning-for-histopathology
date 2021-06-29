@@ -1,29 +1,34 @@
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.layers import Input, Dense
-from tensorflow.keras.models import Model
-from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 from sklearn.metrics import confusion_matrix, roc_auc_score
+from utils.train.visualization import visualize_training
 import matplotlib.pyplot as plt
 from seaborn import heatmap
+from optparse import OptionParser
 import pandas as pd
-import tensorflow as tf
-from utils.models import resnet20
 from tqdm import tqdm
-import pickle
 import numpy as np
 import os
 
-NAME = 'supervised_0.85'
-DIR = 'trained_models/resnet_classifiers/1024'
 
-SHOW_TRAINING_VISUALIZATION = True
+parser = OptionParser()
+parser.add_option('-d', '--dir', dest='dir', default='trained_models/resnet_classifiers/1024/4')
+parser.add_option('-n', '--name', dest='name', default='supervised_0.85')
+parser.add_option('-v', '--no-visualization', dest='show_training_visualization', default=True, action='store_false')
+parser.add_option('-s', '--no-stats', dest='calculate_stats', default=True, action='store_false')
+(options, args) = parser.parse_args()
 
-CALCULATE_STATS = False
+
+DIR = options.dir
+NAME = options.name
+TRAINABLE = False if ('barlow' in NAME and 'fine_tune' not in NAME) else True
+
+SHOW_TRAINING_VISUALIZATION = options.show_training_visualization
+CALCULATE_STATS = options.calculate_stats
+
 IMAGE_SHAPE = [64, 64, 3]
 PROJECTOR_DIMENSIONALITY = 1024
 RANDOM_SEED = 42
-BATCH_SIZE = 32
-TEST_DIR = 'datasets/NuCLS_64_7/test'
+BATCH_SIZE = 16
+TEST_DIR = 'datasets/NuCLS_64_7_grouped/test'
 CLASSES = os.listdir(TEST_DIR)
 
 MODEL_NAME = NAME + '.h5'
@@ -32,36 +37,17 @@ MODEL_PATH = os.path.join(DIR, MODEL_NAME)
 HISTORY_PATH = os.path.join(DIR, HISTORY_NAME)
 
 if SHOW_TRAINING_VISUALIZATION:
-    with open(HISTORY_PATH, 'rb') as file:
-        history = pickle.load(file)
-
-    loss = history['loss']
-    val_loss = history['val_loss']
-    MCC = history['MCC']
-    val_MCC = history['val_MCC']
-    acc = history['acc']
-    val_acc = history['val_acc']
-    top_2_accuracy = history['top_2_accuracy']
-    val_top_2_accuracy = history['val_top_2_accuracy']
-
-    early_stop_epoch = np.argmax(val_acc)
-
-    plt.figure(figsize=(10, 6))
-
-    plt.plot(acc, label='Training accuracy')
-    plt.plot(MCC, label='Training MCC')
-    plt.plot(val_acc, label='Validation accuracy')
-    plt.plot(val_MCC, label='Validation MCC')
-    plt.plot([early_stop_epoch, early_stop_epoch], [0, 1], label='Early stop epoch')
-
-    plt.legend()
-    plt.show()
-
-    print(val_acc[early_stop_epoch], val_top_2_accuracy[early_stop_epoch], val_MCC[early_stop_epoch],
-          val_loss[early_stop_epoch])
-    print(acc[early_stop_epoch], top_2_accuracy[early_stop_epoch], MCC[early_stop_epoch], loss[early_stop_epoch])
+    visualize_training(HISTORY_PATH)
 
 if CALCULATE_STATS:
+    from tensorflow.keras.preprocessing.image import ImageDataGenerator
+    from tensorflow.keras.layers import Input, Dense
+    from tensorflow.keras.models import Model
+    from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
+    from utils.models import resnet20
+    import tensorflow as tf
+
+
     # Load data
     datagen_test = ImageDataGenerator()
     datagen_test = datagen_test.flow_from_directory(
@@ -78,9 +64,8 @@ if CALCULATE_STATS:
 
     inputs = Input(IMAGE_SHAPE)
     x = resnet_enc(inputs)
-    if 'barlow' in MODEL_PATH:
-        resnet_enc.trainable = False
-    x = Dense(7, activation='softmax', kernel_initializer='he_normal')(x)
+    resnet_enc.trainable = TRAINABLE
+    x = Dense(len(CLASSES), activation='softmax', kernel_initializer='he_normal')(x)
     model = Model(inputs=inputs, outputs=x)
     model.compile(
         optimizer='adam',
@@ -122,4 +107,4 @@ if CALCULATE_STATS:
     # Calculate AUROC
     micro_auroc = roc_auc_score(all_labels, all_preds, average='micro')
     macro_auroc = roc_auc_score(all_labels, all_preds, average='macro')
-    print('Micro AUROC:', micro_auroc, 'Macro AUROC:', macro_auroc)
+    print('Micro AUROC:', round(micro_auroc, 4), 'Macro AUROC:', round(macro_auroc, 4))

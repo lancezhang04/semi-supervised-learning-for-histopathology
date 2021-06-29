@@ -4,12 +4,12 @@ import numpy as np
 import os
 
 
-SPLIT = 0.005  # How much of the original dataset to use as training data
+SPLIT = 0.5  # How much of the original dataset to use as training data
 VALIDATION_SPLIT = 0.15  # How much of the original dataset to use as validation data
 assert (SPLIT + VALIDATION_SPLIT) <= 1
-ROOT_DIR = 'datasets/NuCLS_64_7/train'  # The directory of training set of the original dataset
+ROOT_DIR = 'datasets/NuCLS_64_7_grouped/train'  # The directory of training set of the original dataset
 
-TARGET_DIR = f'{ROOT_DIR.split("/")[0]}_{SPLIT}'
+TARGET_DIR = f'datasets/{ROOT_DIR.split("/")[1]}_{SPLIT}'
 TRAIN_DIR = os.path.join(TARGET_DIR, 'train')
 VAL_DIR = os.path.join(TARGET_DIR, 'val')
 RANDOM_SEED = 42
