@@ -4,8 +4,11 @@ from utils.models import resnet20
 from utils.models.barlow_twins import BarlowTwins
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, Callback
+from silence_tensorflow import silence_tensorflow
 import pickle
 import os
+
+silence_tensorflow()
 
 
 # ==================================================================================================================== #

@@ -1,3 +1,4 @@
+from silence_tensorflow import silence_tensorflow
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow_addons.optimizers import SGDW
 from tensorflow.keras.layers import Input, Dense
@@ -11,6 +12,7 @@ from optparse import OptionParser
 import pickle
 import os
 
+silence_tensorflow()
 
 parser = OptionParser()
 parser.add_option('-d', '--dataset_dir', dest='dataset_dir', default='datasets/NuCLS_64_7_grouped_0.2')

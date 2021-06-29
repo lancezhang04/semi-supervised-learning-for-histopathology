@@ -7,7 +7,7 @@ import os
 SPLIT = 0.5  # How much of the original dataset to use as training data
 VALIDATION_SPLIT = 0.15  # How much of the original dataset to use as validation data
 assert (SPLIT + VALIDATION_SPLIT) <= 1
-ROOT_DIR = 'datasets/NuCLS_64_7_grouped/train'  # The directory of training set of the original dataset
+ROOT_DIR = 'NuCLS_64_7_grouped/train'  # The directory of training set of the original dataset
 
 TARGET_DIR = f'datasets/{ROOT_DIR.split("/")[1]}_{SPLIT}'
 TRAIN_DIR = os.path.join(TARGET_DIR, 'train')

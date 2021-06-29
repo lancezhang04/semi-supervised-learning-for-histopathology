@@ -14,12 +14,12 @@ silence_tensorflow()
 GROUP_BY = ['cell_type', 'train_test', 'hospital', 'patient']
 GROUP_BY = GROUP_BY[0]
 
-DATASET_DIR = 'datasets/NuCLS_64_7_grouped/train' if GROUP_BY != 'train_test' else 'datasets/NuCLS_64_7_grouped'
+DATASET_DIR = '../datasets/NuCLS_64_7_grouped/train' if GROUP_BY != 'train_test' else 'datasets/NuCLS_64_7_grouped'
 NUM_CLASSES_SHOWN = None
 
-EMBEDDINGS_PATH = 'dimensionality_reduction/embeddings_train_barlow_fine_tune_0.01.pickle'
-LABELS_PATH = 'dimensionality_reduction/labels_cell_type.pickle'
-MODEL_PATH = 'trained_models/resnet_encoders/1024/resnet_enc_barlow_fine_tune_0.01.h5'
+EMBEDDINGS_PATH = 'cache/embeddings_train_barlow_fine_tune_0.01.pickle'
+LABELS_PATH = 'cache/labels_cell_type.pickle'
+MODEL_PATH = '../trained_models/resnet_encoders/1024/resnet_enc_barlow_fine_tune_0.01.h5'
 # MODEL_PATH = 'trained_models/resnet_encoders/encoder_1024_47.02.h5'
 
 EMBEDDINGS_SAVE_PATH = 'embeddings.pickle'
