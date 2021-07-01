@@ -1,11 +1,11 @@
 from silence_tensorflow import silence_tensorflow
+silence_tensorflow()
+
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import numpy as np
 import pickle
-
-silence_tensorflow()
 
 
 # ==================================================================================================================== #
@@ -14,12 +14,12 @@ silence_tensorflow()
 GROUP_BY = ['cell_type', 'train_test', 'hospital', 'patient']
 GROUP_BY = GROUP_BY[0]
 
-DATASET_DIR = '../datasets/NuCLS_64_7_grouped/train' if GROUP_BY != 'train_test' else 'datasets/NuCLS_64_7_grouped'
+DATASET_DIR = '../datasets/NuCLS_64_7_grouped/test' if GROUP_BY != 'train_test' else 'datasets/NuCLS_64_7_grouped'
 NUM_CLASSES_SHOWN = None
 
-EMBEDDINGS_PATH = 'cache/embeddings_train_barlow_fine_tune_0.01.pickle'
-LABELS_PATH = 'cache/labels_cell_type.pickle'
-MODEL_PATH = '../trained_models/resnet_encoders/1024/resnet_enc_barlow_fine_tune_0.01.h5'
+EMBEDDINGS_PATH = None  # 'cache/embeddings_train_barlow_fine_tune_0.01.pickle'
+LABELS_PATH = None  # 'cache/labels_cell_type.pickle'
+MODEL_PATH = '../trained_models/resnet_encoders/1024/encoder_1024_47.02.h5'
 # MODEL_PATH = 'trained_models/resnet_encoders/encoder_1024_47.02.h5'
 
 EMBEDDINGS_SAVE_PATH = 'embeddings.pickle'
@@ -51,7 +51,7 @@ datagen = datagen.flow_from_directory(
 # ==================================================================================================================== #
 if EMBEDDINGS_PATH is None:
     # Generate features
-    print('Generating features')
+    print('Generating features...')
     from utils.models import resnet20
 
     resnet_enc = resnet20.get_network(
@@ -65,7 +65,7 @@ if EMBEDDINGS_PATH is None:
     preds = resnet_enc.predict(datagen, verbose=1)
 
     # Reduce dimensionality using TSNE
-    print('Reducing dimensionality, this may take a while')
+    print('Reducing dimensionality, this may take a while...')
     preds_embedded = TSNE(n_components=2).fit_transform(preds)
 
     # Save embeddings
@@ -80,9 +80,11 @@ else:
 # ==================================================================================================================== #
 # Create/load labels
 # ==================================================================================================================== #
+# Region
+
 if LABELS_PATH is None:
     # Retrieve labels for color coding
-    print('Retrieving labels')
+    print('Retrieving labels...')
     if GROUP_BY == 'cell_type' or GROUP_BY == 'train_test':
         all_labels = datagen.labels
     elif GROUP_BY == 'hospital':

@@ -1,4 +1,4 @@
-from utils.image import image_augmentation
+from utils import image_augmentation
 import utils.train.lr_scheduler
 from utils.models import resnet20
 from utils.models.barlow_twins import BarlowTwins
@@ -14,6 +14,7 @@ silence_tensorflow()
 # ==================================================================================================================== #
 # Configuration
 # ==================================================================================================================== #
+# region
 
 VERBOSE = 1
 BATCH_SIZE = 128
@@ -39,11 +40,14 @@ PREPROCESSING_CONFIG = {
 RANDOM_SEED = 42
 TRAIN_PATH = os.path.join(ROOT_PATH, 'train')
 TEST_PATH = os.path.join(ROOT_PATH, 'test')
+# endregion
+
 
 # ==================================================================================================================== #
 # Load data generators
 # P.S. Current implementation is a little hacky
 # ==================================================================================================================== #
+# region
 
 # Only using training set (and no validation set)
 datagen_a = image_augmentation.get_generator(
@@ -79,10 +83,13 @@ dataset = tf.data.Dataset.zip((
 
 STEPS_PER_EPOCH = len(datagen_a)
 TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
+# endregion
+
 
 # ==================================================================================================================== #
 # Load model
 # ==================================================================================================================== #
+# region
 
 # Make sure later that this is the correct model
 resnet_enc = resnet20.get_network(
@@ -113,11 +120,13 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
 resnet_enc.trainable = True
 barlow_twins = BarlowTwins(resnet_enc)
 barlow_twins.compile(optimizer=optimizer)
+# endregion
+
 
 # ==================================================================================================================== #
 # Train model
 # ==================================================================================================================== #
-
+# region
 
 # Saves the weights for the encoder only
 class ModelCheckpoint(Callback):
@@ -146,3 +155,4 @@ history = barlow_twins.fit(
 
 with open('trained_models/resnet_classifiers/1024/history.pickle', 'wb') as file:
     pickle.dump(history.history, file)
+# endregion
