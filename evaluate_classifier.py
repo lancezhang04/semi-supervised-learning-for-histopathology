@@ -46,11 +46,11 @@ if CALCULATE_STATS:
     # Load data
     with open(os.path.join(DIR, 'dataset_config.json'), 'r') as file:
         DATASET_CONFIG = json.load(file)
-    datagen_test = get_generators(['test'], IMAGE_SHAPE, BATCH_SIZE, DATASET_CONFIG, RANDOM_SEED)[0]
+    datagen_test = get_generators(['test'], IMAGE_SHAPE, BATCH_SIZE, RANDOM_SEED, DATASET_CONFIG)[0]
     datagen_test_minor, datagen_test_major = get_generators(
         ['test'],
-        IMAGE_SHAPE, BATCH_SIZE, DATASET_CONFIG,
-        RANDOM_SEED,
+        IMAGE_SHAPE, BATCH_SIZE,
+        RANDOM_SEED, config=DATASET_CONFIG,
         separate_evaluation_groups=True
     )[0]
     CLASSES = list(datagen_test.class_indices.keys())

@@ -1,11 +1,12 @@
 from silence_tensorflow import silence_tensorflow
 silence_tensorflow()
 
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from utils.datasets import get_dataset_df, get_generators
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import numpy as np
 import pickle
+import os
 
 
 # ==================================================================================================================== #
@@ -13,20 +14,34 @@ import pickle
 # ==================================================================================================================== #
 GROUP_BY = ['cell_type', 'train_test', 'hospital', 'patient']
 GROUP_BY = GROUP_BY[0]
+USE_SPLIT = 'all'
 
-DATASET_DIR = '../datasets/NuCLS_64_7_grouped/test' if GROUP_BY != 'train_test' else 'datasets/NuCLS_64_7_grouped'
-NUM_CLASSES_SHOWN = None
+IMAGE_SHAPE = (64, 64, 3)
+DATASET_CONFIG = {
+    'split': '../datasets/NuCLS/train_test_splits/fold_1_test.csv',
+    'train_split': 0.1,
+    'validation_split': 0.15,
+    'dataset_dir': '../datasets/NuCLS_64',
+    'cell_groups': {
+        'tumor': 'tumor',
+        'fibroblast': 'stromal',
+        'vascular_endothelium': 'vascular_endothelium',
+        'macrophage': 'stromal',
+        'lymphocyte': 'stils',
+        'plasma_cell': 'stils',
+        'apoptotic_body': 'apoptotic_body'
+    },
+    'major_groups': ['tumor', 'stils']
+}
 
-EMBEDDINGS_PATH = None  # 'cache/embeddings_train_barlow_fine_tune_0.01.pickle'
-LABELS_PATH = None  # 'cache/labels_cell_type.pickle'
-MODEL_PATH = '../trained_models/resnet_encoders/1024/encoder_1024_47.02.h5'
-# MODEL_PATH = 'trained_models/resnet_encoders/encoder_1024_47.02.h5'
-
+EMBEDDINGS_PATH = None  # 'embeddings.pickle'
 EMBEDDINGS_SAVE_PATH = 'embeddings.pickle'
-LABELS_SAVE_PATH = 'labels.pickle'
 
-COLORS = ['red', 'blue'] + \
-         [plt.cm.Set1(i) for i in range(8)] + \
+# MODEL_PATH = '../trained_models/resnet_encoders/1024/resnet_enc_barlow_fine_tune_0.85.h5'
+# MODEL_PATH = 'trained_models/resnet_encoders/encoder_1024_47.02.h5'
+MODEL_PATH = '../trained_models/resnet_encoders/1024/resnet_enc_supervised_0.85.h5'
+
+COLORS = [plt.cm.Set1(i) for i in range(8)] + \
          [plt.cm.Set2(i) for i in range(9)] + \
          [plt.cm.tab20(i) for i in range(20)] + \
          [plt.cm.tab20b(i) for i in range(20)] + \
@@ -34,16 +49,31 @@ COLORS = ['red', 'blue'] + \
          [plt.cm.Pastel1(i) for i in range(9)] + \
          [plt.cm.Accent(i) for i in range(8)] + \
          [plt.cm.Dark2(i) for i in range(8)]
-NUM_COLORS = len(COLORS)
 
 
 # ==================================================================================================================== #
 # Load data
 # ==================================================================================================================== #
-datagen = ImageDataGenerator()
-datagen = datagen.flow_from_directory(
-    DATASET_DIR, shuffle=False, target_size=(64, 64), batch_size=32
-)
+dataset_df = get_dataset_df(DATASET_CONFIG, 42)
+if USE_SPLIT == 'all':
+    dataset_df = dataset_df[dataset_df['split'] != 'left_out']
+    dataset_df['split_label'] = dataset_df['split']
+    dataset_df['split'] = 'all'
+# else:
+#     dataset_df = dataset_df[dataset_df['split'] == 'left_out']
+
+y_col = {
+    'cell_type': 'class',
+    'train_test': 'split_label',
+    'hospital': 'hospital',
+    'patient': 'patient'
+}
+
+datagen = get_generators(
+    [USE_SPLIT], IMAGE_SHAPE, 32,
+    config=None, random_seed=42, df=dataset_df,
+    y_col=y_col[GROUP_BY], shuffle=False
+)[0]
 
 
 # ==================================================================================================================== #
@@ -58,7 +88,7 @@ if EMBEDDINGS_PATH is None:
         hidden_dim=1024,
         use_pred=False,
         return_before_head=False,
-        input_shape=(64, 64, 3)
+        input_shape=IMAGE_SHAPE
     )
     resnet_enc.load_weights(MODEL_PATH)
 
@@ -78,54 +108,26 @@ else:
 
 
 # ==================================================================================================================== #
-# Create/load labels
-# ==================================================================================================================== #
-# Region
-
-if LABELS_PATH is None:
-    # Retrieve labels for color coding
-    print('Retrieving labels...')
-    if GROUP_BY == 'cell_type' or GROUP_BY == 'train_test':
-        all_labels = datagen.labels
-    elif GROUP_BY == 'hospital':
-        # Group by hospital
-        all_labels = [f.split('-')[1] for f in datagen.filenames]
-    elif GROUP_BY == 'patient':
-        # Group by patients
-        all_labels = [f.split('-')[2] for f in datagen.filenames]
-    else:
-        raise ValueError
-
-    # Save labels
-    print('Saving labels')
-    with open(LABELS_SAVE_PATH, 'wb') as file:
-        pickle.dump(all_labels, file)
-else:
-    with open(LABELS_PATH, 'rb') as file:
-        all_labels = pickle.load(file)
-
-
-# ==================================================================================================================== #
 # Plot results
 # ==================================================================================================================== #
-all_labels = np.array(all_labels)
+all_labels = np.array(datagen.labels)
+
 classes = np.unique(all_labels)
-classes = classes[:NUM_CLASSES_SHOWN if NUM_CLASSES_SHOWN else len(classes)]
+if GROUP_BY == 'patient':
+    classes = classes[:len(COLORS)]
 
 num_classes = len(classes)
-print('num_classes', num_classes)
-assert num_classes <= NUM_COLORS
+class_indices = {v: k for k, v in datagen.class_indices.items()}
 
-if GROUP_BY == 'cell_type' or GROUP_BY == 'train_test':
-    class_indices = {v: k for k, v in datagen.class_indices.items()}
-else:
-    class_indices = dict(zip([i for i in range(num_classes)], classes))
 
 plt.figure(figsize=(15, 10))
+plt.title(os.path.basename(MODEL_PATH))
 
 for g, group in enumerate(classes):
     ix = np.where(all_labels == group)
-    plt.scatter(preds_embedded[ix, 0], preds_embedded[ix, 1], alpha=0.15, color=COLORS[g], label=class_indices[g])
+    plt.scatter(preds_embedded[ix, 0], preds_embedded[ix, 1],
+                alpha=0.25, color=COLORS[g], s=60,
+                label=class_indices[g])
 
 if GROUP_BY != 'patient':
     # Grouping by patient results in too many classes

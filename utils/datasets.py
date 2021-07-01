@@ -65,15 +65,19 @@ def get_dataset_df(config, random_seed):
     return df
 
 
-def get_generators(splits, image_shape, batch_size, config, random_seed, separate_evaluation_groups=False):
-    df = get_dataset_df(config, random_seed)
+def get_generators(splits, image_shape, batch_size,
+                   random_seed, config=None, df=None, separate_evaluation_groups=False,
+                   y_col='class', shuffle=True):
+    if df is None:
+        df = get_dataset_df(config, random_seed)
 
     generators = []
     for split in splits:
         if not separate_evaluation_groups:
             datagen = ImageDataGenerator().flow_from_dataframe(
                 df[df['split'] == split], seed=random_seed,
-                target_size=image_shape[:2], batch_size=batch_size
+                target_size=image_shape[:2], batch_size=batch_size,
+                y_col=y_col, shuffle=shuffle
             )
             generators.append(datagen)
         else:
@@ -82,8 +86,8 @@ def get_generators(splits, image_shape, batch_size, config, random_seed, separat
                 print(evaluation_group + ': ', end='')
                 datagen = ImageDataGenerator().flow_from_dataframe(
                     df[(df['split'] == split) & (df['evaluation'] == evaluation_group)], seed=random_seed,
-                    target_size=image_shape[:2], batch_size=batch_size,
-                    classes=list(np.unique(df['class']))
+                    target_size=image_shape[:2], batch_size=batch_size, y_col=y_col,
+                    classes=list(np.unique(df['class'])), shuffle=shuffle
                 )
                 generators[-1].append(datagen)
 

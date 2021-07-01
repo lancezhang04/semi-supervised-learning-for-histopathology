@@ -83,7 +83,7 @@ print('Saved model name:', SAVED_MODEL_NAME)
 
 datagen, datagen_val, datagen_test = get_generators(
     ['train', 'val', 'test'], IMAGE_SHAPE, BATCH_SIZE,
-    DATASET_CONFIG, RANDOM_SEED
+    RANDOM_SEED, config=DATASET_CONFIG
 )
 CLASSES = list(datagen.class_indices.keys())
 # Endregion
