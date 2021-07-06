@@ -20,9 +20,16 @@ parser.add_option('-v', '--no-visualization', dest='show_training_visualization'
 parser.add_option('-s', '--no-stats', dest='calculate_stats', default=True, action='store_false')
 (options, args) = parser.parse_args()
 
+
+# ==================================================================================================================== #
+# Configuration
+# ==================================================================================================================== #
+# region
+
 DIR = options.dir
 NAME = DIR.split('/')[-1]
 TRAINABLE = False if ('barlow' in NAME and 'fine_tune' not in NAME) else True
+OVERRIDE_DATASET_DIR = None  # 'datasets/NuCLS_histogram_matching/NuCLS_histogram_matching_64'
 
 SHOW_TRAINING_VISUALIZATION = options.show_training_visualization
 CALCULATE_STATS = options.calculate_stats
@@ -30,11 +37,24 @@ CALCULATE_STATS = options.calculate_stats
 IMAGE_SHAPE = [64, 64, 3]
 PROJECTOR_DIMENSIONALITY = 1024
 RANDOM_SEED = 42
-BATCH_SIZE = 16
+BATCH_SIZE = 32
+# endregion
 
+
+# ==================================================================================================================== #
+# Training visualization
+# ==================================================================================================================== #
+# region
 
 if SHOW_TRAINING_VISUALIZATION:
     visualize_training(os.path.join(DIR, NAME + '_history.pickle'))
+# endregion
+
+
+# ==================================================================================================================== #
+# Statistics
+# ==================================================================================================================== #
+# region
 
 if CALCULATE_STATS:
     from tensorflow.keras.layers import Input, Dense
@@ -46,6 +66,9 @@ if CALCULATE_STATS:
     # Load data
     with open(os.path.join(DIR, 'dataset_config.json'), 'r') as file:
         DATASET_CONFIG = json.load(file)
+    if OVERRIDE_DATASET_DIR is not None:
+        DATASET_CONFIG['dataset_dir'] = OVERRIDE_DATASET_DIR
+
     datagen_test = get_generators(['test'], IMAGE_SHAPE, BATCH_SIZE, RANDOM_SEED, DATASET_CONFIG)[0]
     datagen_test_minor, datagen_test_major = get_generators(
         ['test'],
@@ -111,3 +134,4 @@ if CALCULATE_STATS:
     micro_auroc = roc_auc_score(all_labels, all_preds, average='micro')
     macro_auroc = roc_auc_score(all_labels, all_preds, average='macro')
     print('Micro AUROC:', round(micro_auroc, 4), 'Macro AUROC:', round(macro_auroc, 4))
+# endregion

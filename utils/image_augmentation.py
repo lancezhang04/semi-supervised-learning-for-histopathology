@@ -26,7 +26,7 @@ TO-DO:
 2. figure out what maximum intensity for color jittering really means...
 """
 
-from keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from functools import partial
 from random import random
 import numpy as np
@@ -177,10 +177,10 @@ def get_preprocessing_function(config, view, verbose=0):
     return preprocessing_function
 
 
-def get_generator(config, view, verbose=0, validation_split=None):
+def get_generator(config, view, verbose=0, validation_split=None, vertical_flip=True):
     generator = ImageDataGenerator(
         horizontal_flip=True,  # 50% probability
-        vertical_flip=True,  # 50% probability
+        vertical_flip=vertical_flip,  # 50% probability
         preprocessing_function=get_preprocessing_function(config=config, view=view, verbose=verbose),
         validation_split=validation_split
     )

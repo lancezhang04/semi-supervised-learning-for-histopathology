@@ -1,8 +1,8 @@
 Keras==2.3.1
-matplotlib==3.4.2
+matplotlib
 numpy==1.18.5
-opencv-python==4.5.2.54
-pandas==1.2.2
+opencv-python-headless
+pandas
 Pillow==8.2.0
 scikit-learn==0.24.2
 scikit-image==0.18.2

@@ -30,7 +30,7 @@ def get_dataset_df(config, random_seed):
     df = pd.DataFrame(df)
 
     # Group the cells
-    for k, v in config['cell_groups'].items():
+    for k, v in config['groups'].items():
         df.loc[df['class'] == k, 'class'] = v
 
     # Generate minor/major classes

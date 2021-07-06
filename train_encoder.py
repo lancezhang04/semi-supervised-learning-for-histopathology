@@ -1,14 +1,15 @@
+from silence_tensorflow import silence_tensorflow
+silence_tensorflow()
+
 from utils import image_augmentation
-import utils.train.lr_scheduler
+from utils.train import lr_scheduler
 from utils.models import resnet20
 from utils.models.barlow_twins import BarlowTwins
+from utils.datasets import get_dataset_df
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, Callback
-from silence_tensorflow import silence_tensorflow
 import pickle
 import os
-
-silence_tensorflow()
 
 
 # ==================================================================================================================== #
@@ -20,12 +21,9 @@ VERBOSE = 1
 BATCH_SIZE = 128
 PATIENCE = 30
 EPOCHS = 120
-IMAGE_SHAPE = [64, 64, 3]
+IMAGE_SHAPE = [224, 224, 3]
 PROJECTOR_DIMENSIONALITY = 2048
-# ROOT_PATH = 'datasets/NuCLS_64_7_grouped/train'
-ROOT_PATH = 'datasets/7/NuCLS_64_7'  # 'datasets/NuCLS_64_7'
-MODEL_WEIGHTS = None  # 'trained_models/encoder_2048.h5'
-SAVE_DIR = ''  # 'trained_models'
+
 PREPROCESSING_CONFIG = {
     'color_jittering': 0.8,
     'color_dropping_probability': 0.2,
@@ -36,10 +34,19 @@ PREPROCESSING_CONFIG = {
     'gaussian_blurring_probability': [1.0, 0.1],
     'solarization_probability': [0, 0.2]
 }
-
 RANDOM_SEED = 42
-TRAIN_PATH = os.path.join(ROOT_PATH, 'train')
-TEST_PATH = os.path.join(ROOT_PATH, 'test')
+
+MODEL_WEIGHTS = None  # 'trained_models/encoder_2048.h5'
+SAVE_DIR = ''  # 'trained_models'
+
+DATASET_CONFIG = {
+    'split': 'tissue_classification/fold_test.csv',
+    'train_split': 1,
+    'validation_split': 0,
+    'dataset_dir': 'tissue_classification/tissue_classification',
+    'groups': {},
+    'major_groups': []
+}
 # endregion
 
 
@@ -50,21 +57,22 @@ TEST_PATH = os.path.join(ROOT_PATH, 'test')
 # region
 
 # Only using training set (and no validation set)
+df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
+
 datagen_a = image_augmentation.get_generator(
     PREPROCESSING_CONFIG, view=0
-).flow_from_directory(
-    TRAIN_PATH,
+).flow_from_dataframe(
+    df[df['split'] == 'train'],
     seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2],
-    batch_size=BATCH_SIZE
+    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
 )
+
 datagen_b = image_augmentation.get_generator(
     PREPROCESSING_CONFIG, view=1
-).flow_from_directory(
-    TRAIN_PATH,
+).flow_from_dataframe(
+    df[df['split'] == 'train'],
     seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2],
-    batch_size=BATCH_SIZE
+    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
 )
 
 
@@ -107,7 +115,7 @@ if MODEL_WEIGHTS:
 WARMUP_EPOCHS = int(EPOCHS * 0.1)
 WARMUP_STEPS = int(WARMUP_EPOCHS * STEPS_PER_EPOCH)
 
-lr_decay_fn = utils.train.lr_scheduler.WarmUpCosine(
+lr_decay_fn = lr_scheduler.WarmUpCosine(
     learning_rate_base=1e-3,
     total_steps=EPOCHS * STEPS_PER_EPOCH,
     warmup_learning_rate=0.0,
