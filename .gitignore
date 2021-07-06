@@ -1,0 +1,30 @@
+# Object detection, unused code
+prev
+
+# Datasetes
+datasets/*
+!prev/create_dataset.py
+!prev/match_histograms.py
+cifar-10-python
+tissue_classification/*
+!tissue_classification/generate_patches.py
+!tissue_classification/fold_test.csv
+
+# trained_models
+trained_models/*
+dimensionality_reduction/cache/*
+dimensionality_reduction/embeddings.pickle
+dimensionality_reduction/labels.pickle
+*.h5
+
+# Venv
+venv
+
+# Misc
+__pycache__
+utils/__pycache__
+.ipynb_checkpoints
+.idea
+*.bat
+meta.txt
+
