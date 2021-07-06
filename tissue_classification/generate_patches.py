@@ -9,7 +9,7 @@ import os
 
 MASKS_DIR = 'masks'
 RGB_DIR = 'rgbs_colorNormalized'
-TARGET_DIR = 'test'
+TARGET_DIR = 'tissue_classification'
 
 PATCH_SIZE = 224
 STEP_SIZE = int(0.5 * PATCH_SIZE)
@@ -21,7 +21,7 @@ GT_CODES = dict(zip(df['GT_code'], df['label']))
 os.makedirs(TARGET_DIR, exist_ok=True)
 
 
-def generate_patches(img, mask, img_name, split='train', verbose=0):
+def generate_patches(img, mask, img_name, verbose=0):
     horizontal_steps = int((img.shape[1] - PATCH_SIZE) / STEP_SIZE)
     vertical_steps = int((img.shape[0] - PATCH_SIZE) / STEP_SIZE)
 
@@ -50,7 +50,7 @@ def generate_patches(img, mask, img_name, split='train', verbose=0):
             else:
                 continue
 
-            patch_save_dir = os.path.join(TARGET_DIR, split, tissue_type)
+            patch_save_dir = os.path.join(TARGET_DIR, tissue_type)
             os.makedirs(patch_save_dir, exist_ok=True)
 
             cv2.imwrite(os.path.join(patch_save_dir, f'{img_name}_{patches_generated}_{round(max(ratios), 3)}.png'),
@@ -71,8 +71,6 @@ def generate_patches(img, mask, img_name, split='train', verbose=0):
 
 
 if __name__ == '__main__':
-    train_hospitals, test_hospitals = generate_splits()
-
     total_patches_generated = 0
     total_tissue_type_counts = defaultdict(lambda: 0)
 
@@ -81,15 +79,9 @@ if __name__ == '__main__':
         image = cv2.imread(os.path.join(RGB_DIR, image_name))
         mask = cv2.imread(os.path.join(MASKS_DIR, mask_name))
 
-        if image_name.split('-')[1] in train_hospitals:
-            split = 'train'
-        else:
-            split = 'test'
-
         patches_generated, tissue_type_counts = generate_patches(
             image, mask,
             image_name.split('.')[0],
-            split=split,
             verbose=0
         )
 
