@@ -8,6 +8,8 @@ from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, Callback
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from datetime import datetime
 import pickle
 import os
 
@@ -18,13 +20,14 @@ import os
 # region
 
 VERBOSE = 1
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 PATIENCE = 30
-EPOCHS = 100
-IMAGE_SHAPE = [112, 112, 3]
+EPOCHS = 1
+IMAGE_SHAPE = [32, 32, 3]
 PROJECTOR_DIMENSIONALITY = 2048
 
 PREPROCESSING_CONFIG = {
+    'vertical_flip_probability': 0.5,
     'color_jittering': 0.8,
     'color_dropping_probability': 0.2,
     'brightness_adjustment_max_intensity': 0.4,
@@ -59,18 +62,20 @@ DATASET_CONFIG = {
 # Only using training set (and no validation set)
 df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
 
-datagen_a = image_augmentation.get_generator(
-    PREPROCESSING_CONFIG, view=0
+aug_a = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=0)
+datagen_a = ImageDataGenerator(
+    preprocessing_function=lambda x: aug_a(image=x)
 ).flow_from_dataframe(
-    df[df['split'] == 'train'],
+df[df['split'] == 'train'],
     seed=RANDOM_SEED,
     target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
 )
 
-datagen_b = image_augmentation.get_generator(
-    PREPROCESSING_CONFIG, view=1
+aug_b = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=1)
+datagen_b = ImageDataGenerator(
+    preprocessing_function=lambda x: aug_b(image=x)
 ).flow_from_dataframe(
-    df[df['split'] == 'train'],
+df[df['split'] == 'train'],
     seed=RANDOM_SEED,
     target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
 )
@@ -88,6 +93,7 @@ dataset = tf.data.Dataset.zip((
     create_dataset(datagen_a),
     create_dataset(datagen_b)
 ))
+dataset = dataset.prefetch(2)
 
 STEPS_PER_EPOCH = len(datagen_a)
 TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
@@ -158,11 +164,15 @@ class ModelCheckpoint(Callback):
 es = EarlyStopping(monitor='loss', mode='min', verbose=1, patience=PATIENCE)
 mc = ModelCheckpoint()
 
+# For performance analysis
+logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
+
 history = barlow_twins.fit(
     dataset,
     epochs=EPOCHS,
     steps_per_epoch=STEPS_PER_EPOCH,
-    callbacks=[es, mc]
+    callbacks=[es, mc, tboard]
 )
 
 with open('trained_models/resnet_classifiers/1024/history.pickle', 'wb') as file:

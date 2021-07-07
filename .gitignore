@@ -28,4 +28,5 @@ utils/__pycache__
 *.bat
 !git_update.bat
 meta.txt
+notebooks
 
