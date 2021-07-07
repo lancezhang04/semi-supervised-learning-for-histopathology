@@ -18,10 +18,10 @@ import os
 # region
 
 VERBOSE = 1
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 PATIENCE = 30
-EPOCHS = 120
-IMAGE_SHAPE = [224, 224, 3]
+EPOCHS = 100
+IMAGE_SHAPE = [112, 112, 3]
 PROJECTOR_DIMENSIONALITY = 2048
 
 PREPROCESSING_CONFIG = {
@@ -99,35 +99,39 @@ TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
 # ==================================================================================================================== #
 # region
 
-# Make sure later that this is the correct model
-resnet_enc = resnet20.get_network(
-    hidden_dim=PROJECTOR_DIMENSIONALITY,
-    use_pred=False,
-    return_before_head=False,
-    input_shape=IMAGE_SHAPE
-)
-if MODEL_WEIGHTS:
-    resnet_enc.load_weights(MODEL_WEIGHTS)
-    if VERBOSE:
-        print('Using (pretrained) model weights')
+strategy = tf.distribute.MirroredStrategy()
+print('Number of devices:', strategy.num_replicas_in_sync)
 
-# Load optimizer
-WARMUP_EPOCHS = int(EPOCHS * 0.1)
-WARMUP_STEPS = int(WARMUP_EPOCHS * STEPS_PER_EPOCH)
+with strategy.scope():
+    # Make sure later that this is the correct model
+    resnet_enc = resnet20.get_network(
+        hidden_dim=PROJECTOR_DIMENSIONALITY,
+        use_pred=False,
+        return_before_head=False,
+        input_shape=IMAGE_SHAPE
+    )
+    if MODEL_WEIGHTS:
+        resnet_enc.load_weights(MODEL_WEIGHTS)
+        if VERBOSE:
+            print('Using (pretrained) model weights')
 
-lr_decay_fn = lr_scheduler.WarmUpCosine(
-    learning_rate_base=1e-3,
-    total_steps=EPOCHS * STEPS_PER_EPOCH,
-    warmup_learning_rate=0.0,
-    warmup_steps=WARMUP_STEPS
-)
-optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
+    # Load optimizer
+    WARMUP_EPOCHS = int(EPOCHS * 0.1)
+    WARMUP_STEPS = int(WARMUP_EPOCHS * STEPS_PER_EPOCH)
+
+    lr_decay_fn = lr_scheduler.WarmUpCosine(
+        learning_rate_base=1e-3,
+        total_steps=EPOCHS * STEPS_PER_EPOCH,
+        warmup_learning_rate=0.0,
+        warmup_steps=WARMUP_STEPS
+    )
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
 
 
-# Get model
-resnet_enc.trainable = True
-barlow_twins = BarlowTwins(resnet_enc)
-barlow_twins.compile(optimizer=optimizer)
+    # Get model
+    resnet_enc.trainable = True
+    barlow_twins = BarlowTwins(resnet_enc)
+    barlow_twins.compile(optimizer=optimizer)
 # endregion
 
 
