@@ -1,5 +1,5 @@
 from collections import defaultdict
-from tissue_classification.generate_splits import generate_splits
+from generate_splits import generate_splits
 import cv2
 from tqdm import tqdm
 import numpy as np

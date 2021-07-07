@@ -20,9 +20,9 @@ def get_dataset_df(config, random_seed):
         for name in files:
             path = os.path.join(root, name)
             df['filename'].append(path)
-            df['class'].append(path.split('\\')[1])
+            df['class'].append(path.split('/')[-2])
 
-            slide_name = path.split('\\')[2].split('_')[0]
+            slide_name = path.split('/')[-1].split('_')[0]
             df['slide_name'].append(slide_name)
             df['hospital'].append(slide_name.split('-')[1])
             df['patient'].append(slide_name.split('-')[2])
