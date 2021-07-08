@@ -98,9 +98,16 @@ def get_generators(splits, image_shape, batch_size,
     return generators
 
 
-def create_dataset(datagen):
+def create_encoder_dataset(datagen):
     def generator():
         while True:
-            # Retrieve the images
             yield datagen.next()[0]
     return tf.data.Dataset.from_generator(generator, output_types='float32')
+
+
+def create_classifier_dataset(datagen):
+    def generator():
+        while True:
+            X, y = datagen.next()
+            yield X[0], y[0]
+    return tf.data.Dataset.from_generator(generator, output_types=('float32', 'float32'))

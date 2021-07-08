@@ -5,7 +5,7 @@ from utils import image_augmentation
 from utils.train import lr_scheduler
 from utils.models import resnet20
 from utils.models.barlow_twins import BarlowTwins
-from utils.datasets import get_dataset_df
+from utils.datasets import get_dataset_df, create_encoder_dataset
 import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, Callback
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -99,21 +99,14 @@ df[df['split'] == 'train'],
 )
 
 
-def create_dataset(gen):
-    def generator():
-        while True:
-            yield gen.next()[0][0]
-    return tf.data.Dataset.from_generator(generator, output_types='float32')
-
-
-ds_a = create_dataset(datagen)
+ds_a = create_encoder_dataset(datagen)
 ds_a = ds_a.map(
     lambda x: image_augmentation.augment(x, 0, FILTER_SIZE),
     num_parallel_calls=tf.data.experimental.AUTOTUNE
 )
 ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-ds_b = create_dataset(datagen)
+ds_b = create_encoder_dataset(datagen)
 ds_b = ds_b.map(
     lambda x: image_augmentation.augment(x, 1, FILTER_SIZE),
     num_parallel_calls=tf.data.experimental.AUTOTUNE

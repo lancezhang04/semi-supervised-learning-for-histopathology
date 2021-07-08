@@ -9,7 +9,7 @@ from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 import tensorflow as tf
 from utils.models import resnet20
 from utils.train import lr_scheduler
-from utils.datasets import get_generators, create_dataset
+from utils.datasets import get_generators, create_classifier_dataset
 from optparse import OptionParser
 from datetime import datetime
 import pickle
@@ -141,15 +141,15 @@ datagen, datagen_val, datagen_test = get_generators(
     IMAGE_SHAPE, 1,
     RANDOM_SEED, config=DATASET_CONFIG
 )
-ds = create_dataset(datagen)
+ds = create_classifier_dataset(datagen)
 ds = ds.batch(BATCH_SIZE)
 ds = ds.prefetch(40)
 
-ds_val = create_dataset(datagen_val)
+ds_val = create_classifier_dataset(datagen_val)
 ds_val = ds_val.batch(BATCH_SIZE)
 ds_val = ds_val.prefetch(40)
 
-ds_test = create_dataset(datagen_test)
+ds_test = create_classifier_dataset(datagen_test)
 ds_test = ds_test.batch(BATCH_SIZE)
 ds_test = ds_test.prefetch(40)
 
