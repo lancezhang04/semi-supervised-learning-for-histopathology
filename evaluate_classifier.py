@@ -14,7 +14,7 @@ import json
 import os
 
 parser = OptionParser()
-parser.add_option('-d', '--dir', dest='dir', default='trained_models/resnet_classifiers/1024/5/barlow_fine_tune_0.5')
+parser.add_option('-d', '--dir', dest='dir', default='trained_models/0707/barlow_fine_tune_0.5')
 # parser.add_option('-n', '--name', dest='name', default='supervised_0.85')
 parser.add_option('-v', '--no-visualization', dest='show_training_visualization', default=True, action='store_false')
 parser.add_option('-s', '--no-stats', dest='calculate_stats', default=True, action='store_false')
@@ -34,10 +34,10 @@ OVERRIDE_DATASET_DIR = None  # 'datasets/NuCLS_histogram_matching/NuCLS_histogra
 SHOW_TRAINING_VISUALIZATION = options.show_training_visualization
 CALCULATE_STATS = options.calculate_stats
 
-IMAGE_SHAPE = [64, 64, 3]
-PROJECTOR_DIMENSIONALITY = 1024
+IMAGE_SHAPE = [112, 112, 3]
+PROJECTOR_DIMENSIONALITY = 2048
 RANDOM_SEED = 42
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 # endregion
 
 
@@ -57,6 +57,8 @@ if SHOW_TRAINING_VISUALIZATION:
 # region
 
 if CALCULATE_STATS:
+    print('\nCalculating statistics...')
+    
     from tensorflow.keras.layers import Input, Dense
     from tensorflow.keras.models import Model
     from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
@@ -68,7 +70,7 @@ if CALCULATE_STATS:
         DATASET_CONFIG = json.load(file)
     if OVERRIDE_DATASET_DIR is not None:
         DATASET_CONFIG['dataset_dir'] = OVERRIDE_DATASET_DIR
-
+    
     datagen_test = get_generators(['test'], IMAGE_SHAPE, BATCH_SIZE, RANDOM_SEED, DATASET_CONFIG)[0]
     datagen_test_minor, datagen_test_major = get_generators(
         ['test'],
@@ -90,6 +92,7 @@ if CALCULATE_STATS:
     x = resnet_enc(inputs)
     resnet_enc.trainable = TRAINABLE
     x = Dense(len(CLASSES), activation='softmax', kernel_initializer='he_normal')(x)
+    
     model = Model(inputs=inputs, outputs=x)
     model.compile(
         optimizer='adam',
@@ -103,11 +106,15 @@ if CALCULATE_STATS:
     model.load_weights(os.path.join(DIR, NAME + '.h5'))
 
     # Loss and metrics
+    print('\nall:')
     test_loss, test_acc, test_top_2_acc, test_MCC = model.evaluate(datagen_test)
+    print('minor:')
     test_loss_minor, test_acc_minor, test_top_2_acc_minor, test_MCC_minor = model.evaluate(datagen_test_minor)
+    print('major:')
     test_loss_major, test_acc_major, test_top_2_acc_major, test_MCC_major = model.evaluate(datagen_test_major)
 
     # Create confusion matrix
+    print('\ngenerating confusion matrix...')
     all_labels = []
     all_preds = []
 
@@ -120,7 +127,7 @@ if CALCULATE_STATS:
     all_labels = np.array(all_labels)
     all_preds = np.array(all_preds)
 
-    conf_matrix = confusion_matrix(np.argmax(all_labels, axis=-1), np.argmax(all_preds, axis=-1)).astype('int32')
+    conf_matrix = confusion_matrix(np.argmax(all_labels, axis=-1), np.argmax(all_preds, axis=-1), normalize='true')
     conf_matrix = pd.DataFrame(conf_matrix, columns=CLASSES, index=CLASSES)
     # confusion_matrix.set_index(CLASSES)
 

@@ -85,7 +85,8 @@ def get_generators(splits, image_shape, batch_size,
         else:
             generators.append([])
             for evaluation_group in ['minor', 'major']:
-                print(evaluation_group + ': ', end='')
+                print(evaluation_group + ':', np.unique(df[df['evaluation'] == evaluation_group]['class']), end=' ')
+                
                 datagen = ImageDataGenerator().flow_from_dataframe(
                     df[(df['split'] == split) & (df['evaluation'] == evaluation_group)], seed=random_seed,
                     target_size=image_shape[:2], batch_size=batch_size, y_col=y_col,

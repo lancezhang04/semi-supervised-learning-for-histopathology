@@ -49,10 +49,11 @@ DATASET_CONFIG = {
     'split': 'tissue_classification/fold_test.csv',
     'train_split': 0.5,
     'validation_split': 0.15,
-    'dataset_dir': 'tissue_classification/test',
+    'dataset_dir': 'tissue_classification/tissue_classification',
     'groups': {
         'tumor': 'tumor',
         'dcis': 'tumor',
+        'angioinvasion': 'tumor',
         'stroma': 'stroma',
         'necrosis_or_debris': 'necrosis_or_debris',
         'lymphocytic_infiltrate': 'inflammatory_infiltrate',
@@ -68,7 +69,7 @@ DATASET_CONFIG = {
         'normal_acinus_or_duct': 'other',
         'outside_roi': 'other',
         'skin_adnexa': 'other',
-        'undertermined': 'other'
+        'undetermined': 'other'
     },
     'major_groups': ['tumor', 'stroma', 'inflammatory_infiltrate']
 }
@@ -80,17 +81,17 @@ DATASET_CONFIG = {
 # ==================================================================================================================== #
 # region
 
-TRAIN_FROM_SCRATCH = True  # options.train_from_scratch
-FINE_TUNE = True  # options.fine_tune
-PROJECTOR_DIMENSIONALITY = 1024
-IMAGE_SHAPE = [224, 224, 3]
+TRAIN_FROM_SCRATCH = False  # options.train_from_scratch
+FINE_TUNE = False  # options.fine_tune
+PROJECTOR_DIMENSIONALITY = 2048
+IMAGE_SHAPE = [112, 112, 3]
 RANDOM_SEED = 42
 BATCH_SIZE = 128
 LEARNING_RATE = 5e-4
 PATIENCE = 100
 EPOCHS = 30
 
-PRETRAINED_DIR = 'trained_models/resnet_encoders/1024/encoder_1024_47.02.h5'
+PRETRAINED_DIR = 'encoder_2048.h5'
 
 ROOT_SAVE_DIR = ''  # 'trained_models/resnet_classifiers/1024/'
 NAME = f'{"supervised" if TRAIN_FROM_SCRATCH else "barlow"}' + \

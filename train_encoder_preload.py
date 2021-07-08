@@ -10,6 +10,7 @@ import tensorflow as tf
 from tensorflow.keras.callbacks import EarlyStopping, Callback
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from datetime import datetime
+import numpy as np
 import pickle
 import os
 
@@ -22,12 +23,14 @@ from tqdm import tqdm
 # ==================================================================================================================== #
 # region
 
+PRELOADED_DATASET_DIRS = ['tissue_classification/preloaded/X_a.npy', 'tissue_classification/preloaded/X_b.npy']
+
 VERBOSE = 1
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 PATIENCE = 30
-EPOCHS = 1
-IMAGE_SHAPE = [32, 32, 3]
-PROJECTOR_DIMENSIONALITY = 2048
+EPOCHS = 30
+IMAGE_SHAPE = [112, 112, 3]
+PROJECTOR_DIMENSIONALITY = 4096
 
 PREPROCESSING_CONFIG = {
     'vertical_flip_probability': 0.5,
@@ -62,37 +65,67 @@ DATASET_CONFIG = {
 # ==================================================================================================================== #
 # region
 
-# Only using training set (and no validation set)
-df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
+if PRELOADED_DATASET_DIRS is None:
+    # Only using training set (and no validation set)
+    df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
 
-aug_a = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=0)
-datagen_a = ImageDataGenerator(
-    preprocessing_function=lambda x: aug_a(image=x)
-).flow_from_dataframe(
-df[df['split'] == 'train'],
-    seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
-)
+    aug_a = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=0)
+    datagen_a = ImageDataGenerator(
+        preprocessing_function=lambda x: aug_a(image=x)
+    ).flow_from_dataframe(
+    df[df['split'] == 'train'],
+        seed=RANDOM_SEED,
+        target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
+    )
 
-aug_b = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=1)
-datagen_b = ImageDataGenerator(
-    preprocessing_function=lambda x: aug_b(image=x)
-).flow_from_dataframe(
-df[df['split'] == 'train'],
-    seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
-)
+    aug_b = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=1)
+    datagen_b = ImageDataGenerator(
+        preprocessing_function=lambda x: aug_b(image=x)
+    ).flow_from_dataframe(
+    df[df['split'] == 'train'],
+        seed=RANDOM_SEED,
+        target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
+    )
 
-STEPS_PER_EPOCH = len(datagen_a)
+    STEPS_PER_EPOCH = len(datagen_a)
+
+    X_a, X_b = [], [] # next(datagen_a)[0], next(datagen_b)[0]
+    for i in tqdm(range(STEPS_PER_EPOCH - 1), ncols=100):
+    #     X_a = np.concatenate([X_a, next(datagen_a)[0]], axis=0)
+    #     X_b = np.concatenate([X_b, next(datagen_b)[0]], axis=0)
+        X_a.append(next(datagen_a)[0])
+        X_b.append(next(datagen_b)[0])
+
+    X_a, X_b = np.array(X_a), np.array(X_b)
+    
+    
+    X_a = X_a.reshape([-1] + IMAGE_SHAPE)
+    X_b = X_b.reshape([-1] + IMAGE_SHAPE)
+
+    X_a = X_a.astype('float32') / 127.5 - 1
+    X_b = X_b.astype('float32') / 127.5 - 1
+    
+    print('Saving loaded data...', X_a.shape)
+    with open('X_a.npy', 'wb') as file:
+        np.save(file, X_a)
+    with open('X_b.npy', 'wb') as file:
+        np.save(file, X_b)
+else:
+    assert len(PRELOADED_DATASET_DIRS) == 2
+    
+    print('Loading saved data...')
+    with open(PRELOADED_DATASET_DIRS[0], 'rb') as file:
+        X_a = np.load(file)
+    with open(PRELOADED_DATASET_DIRS[1], 'rb') as file:
+        X_b = np.load(file)
+        
+    STEPS_PER_EPOCH = len(X_a) // BATCH_SIZE
+    
+    print(X_a.shape, BATCH_SIZE)
+    print('Steps per epoch:', STEPS_PER_EPOCH)
+
 TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
-
-X_a, X_b = next(datagen_a)[0], next(datagen_b)[0]
-for i in tqdm(range(STEPS_PER_EPOCH - 1), ncols=100):
-    X_a = np.concatenate([X_a, next(datagen_a)[0]], axis=0)
-    X_b = np.concatenate([X_b, next(datagen_b)[0]], axis=0)
-X_a = X_a.astype('float32') / 127.5 - 1
-X_b = X_b.astype('float32') / 127.5 - 1
-
+    
 dataset_a = tf.data.Dataset.from_tensor_slices(X_a)
 dataset_b = tf.data.Dataset.from_tensor_slices(X_b)
 
@@ -109,7 +142,7 @@ dataset = dataset.prefetch(2)
 # ==================================================================================================================== #
 # region
 
-strategy = tf.distribute.MirroredStrategy()
+strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
 print('Number of devices:', strategy.num_replicas_in_sync)
 
 with strategy.scope():
@@ -175,10 +208,9 @@ tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_
 history = barlow_twins.fit(
     dataset,
     epochs=EPOCHS,
-    steps_per_epoch=STEPS_PER_EPOCH,
     callbacks=[es, mc, tboard]
 )
 
-with open('trained_models/resnet_classifiers/1024/history.pickle', 'wb') as file:
+with open('history.pickle', 'wb') as file:
     pickle.dump(history.history, file)
 # endregion
