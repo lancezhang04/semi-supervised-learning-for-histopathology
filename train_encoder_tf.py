@@ -24,6 +24,7 @@ BATCH_SIZE = 32
 PATIENCE = 30
 EPOCHS = 1
 IMAGE_SHAPE = [32, 32, 3]
+FILTER_SIZE = 3
 PROJECTOR_DIMENSIONALITY = 2048
 
 PREPROCESSING_CONFIG = {
@@ -62,40 +63,40 @@ DATASET_CONFIG = {
 # Only using training set (and no validation set)
 df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
 
-aug_a = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=0)
-datagen_a = ImageDataGenerator(
-    preprocessing_function=lambda x: aug_a(image=x)
-).flow_from_dataframe(
+datagen = ImageDataGenerator(rescale=1./225).flow_from_dataframe(
 df[df['split'] == 'train'],
     seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
-)
-
-aug_b = image_augmentation.get_preprocessing_function(PREPROCESSING_CONFIG, view=1)
-datagen_b = ImageDataGenerator(
-    preprocessing_function=lambda x: aug_b(image=x)
-).flow_from_dataframe(
-df[df['split'] == 'train'],
-    seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
+    target_size=IMAGE_SHAPE[:2], batch_size=1
 )
 
 
-def create_dataset(datagen):
+def create_dataset(gen):
     def generator():
         while True:
-            # Retrieve the images
-            yield datagen.next()[0]
+            yield gen.next()[0][0]
     return tf.data.Dataset.from_generator(generator, output_types='float32')
 
 
-dataset = tf.data.Dataset.zip((
-    create_dataset(datagen_a),
-    create_dataset(datagen_b)
-))
-dataset = dataset.prefetch(2)
+ds_a = create_dataset(datagen)
+ds_a = ds_a.map(
+    lambda x: image_augmentation.augment(x, 0, FILTER_SIZE),
+    num_parallel_calls=tf.data.experimental.AUTOTUNE
+)
+ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-STEPS_PER_EPOCH = len(datagen_a)
+ds_b = create_dataset(datagen)
+ds_b = ds_b.map(
+    lambda x: image_augmentation.augment(x, 1, FILTER_SIZE),
+    num_parallel_calls=tf.data.experimental.AUTOTUNE
+)
+ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+dataset = tf.data.Dataset.zip((ds_a, ds_b))
+dataset = dataset.batch(BATCH_SIZE)
+dataset = dataset.prefetch(10)
+
+
+STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
 TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
 # endregion
 
@@ -132,6 +133,7 @@ with strategy.scope():
         warmup_steps=WARMUP_STEPS
     )
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
+
 
     # Get model
     resnet_enc.trainable = True

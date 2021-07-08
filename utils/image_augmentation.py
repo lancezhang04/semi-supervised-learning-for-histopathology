@@ -1,4 +1,6 @@
 import imgaug.augmenters as iaa
+import tensorflow as tf
+import tensorflow_addons as tfa
 
 
 def get_preprocessing_function(config, view):
@@ -51,3 +53,36 @@ def get_preprocessing_function(config, view):
 
     return aug
 
+
+def augment(x: tf.Tensor, view, filter_size) -> tf.Tensor:
+    # Gaussian blur's sigma is fixed at 1
+    # Input must be clipped into the range of [0, 1]
+
+    # Random 90-degree rotations
+    x = tf.image.rot90(x, tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
+    # Random horizontal and vertical flips
+    x = tf.image.random_flip_left_right(x)
+    x = tf.image.random_flip_up_down(x)
+
+    if tf.random.uniform(shape=[]) < 0.8:
+        funcs = [
+            lambda: tf.image.random_hue(x, 0.1),
+            lambda: tf.image.random_saturation(x, 0.8, 1.2),
+            lambda: tf.image.random_brightness(x, 0.4),
+            lambda: tf.image.random_contrast(x, 0.6, 1.4),
+        ]
+
+        seq = tf.random.shuffle([i for i in range(len(funcs))])
+        for i in seq:
+            # Really weird implementation: cannot index with `i` directly since it is a Tensor
+            for j in range(len(funcs)):
+                if i == j:
+                    x = funcs[j]()
+
+    if tf.random.uniform(shape=[]) < [1.0, 0.1][view]:
+        x = tfa.image.gaussian_filter2d(x, filter_shape=filter_size, sigma=1)
+
+    if tf.random.uniform(shape=[]) < [0, 0.2][view]:
+        x = tf.where(x < 0.5, x, 1 - x)
+
+    return x
