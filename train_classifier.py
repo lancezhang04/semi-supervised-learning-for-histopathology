@@ -83,7 +83,7 @@ DATASET_CONFIG = {
 # ==================================================================================================================== #
 # region
 
-TRAIN_FROM_SCRATCH = False  # options.train_from_scratch
+TRAIN_FROM_SCRATCH = True  # options.train_from_scratch
 FINE_TUNE = True  # options.fine_tune
 PROJECTOR_DIMENSIONALITY = 4096
 IMAGE_SHAPE = [224, 224, 3]
@@ -141,20 +141,20 @@ datagen, datagen_val, datagen_test = get_generators(
     IMAGE_SHAPE, 1,
     RANDOM_SEED, config=DATASET_CONFIG
 )
-ds = create_classifier_dataset(datagen)
+CLASSES = list(datagen.class_indices.keys())
+STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
+
+ds = create_classifier_dataset(datagen, IMAGE_SHAPE, len(CLASSES))
 ds = ds.batch(BATCH_SIZE)
 ds = ds.prefetch(40)
 
-ds_val = create_classifier_dataset(datagen_val)
+ds_val = create_classifier_dataset(datagen_val, IMAGE_SHAPE, len(CLASSES))
 ds_val = ds_val.batch(BATCH_SIZE)
 ds_val = ds_val.prefetch(40)
 
-ds_test = create_classifier_dataset(datagen_test)
+ds_test = create_classifier_dataset(datagen_test, IMAGE_SHAPE, len(CLASSES))
 ds_test = ds_test.batch(BATCH_SIZE)
 ds_test = ds_test.prefetch(40)
-
-CLASSES = list(datagen.class_indices.keys())
-STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
 # endregion
 
 

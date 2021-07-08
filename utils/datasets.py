@@ -105,9 +105,13 @@ def create_encoder_dataset(datagen):
     return tf.data.Dataset.from_generator(generator, output_types='float32')
 
 
-def create_classifier_dataset(datagen):
+def create_classifier_dataset(datagen, image_shape, num_classes):
     def generator():
         while True:
             X, y = datagen.next()
             yield X[0], y[0]
-    return tf.data.Dataset.from_generator(generator, output_types=('float32', 'float32'))
+    return tf.data.Dataset.from_generator(
+        generator,
+        output_types=('float32', 'float32'),
+        output_shapes=((image_shape[0], image_shape[1], 3), num_classes)
+    )
