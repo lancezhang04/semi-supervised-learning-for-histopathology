@@ -9,7 +9,7 @@ from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 import tensorflow as tf
 from utils.models import resnet20
 from utils.train import lr_scheduler
-from utils.datasets import get_generators
+from utils.datasets import get_generators, create_dataset
 from optparse import OptionParser
 from datetime import datetime
 import pickle
@@ -28,6 +28,7 @@ parser.add_option('-f', '--fine_tune', dest='fine_tune', default=False, action='
 # ==================================================================================================================== #
 # region
 
+# cell classification
 # DATASET_CONFIG = {
 #     'split': 'datasets/NuCLS/train_test_splits/fold_1_test.csv',
 #     'train_split': 0.5,
@@ -45,6 +46,7 @@ parser.add_option('-f', '--fine_tune', dest='fine_tune', default=False, action='
 #     'major_groups': ['tumor', 'stils']
 # }
 
+# tissue classification
 DATASET_CONFIG = {
     'split': 'tissue_classification/fold_test.csv',
     'train_split': 0.5,
@@ -82,23 +84,50 @@ DATASET_CONFIG = {
 # region
 
 TRAIN_FROM_SCRATCH = False  # options.train_from_scratch
-FINE_TUNE = False  # options.fine_tune
-PROJECTOR_DIMENSIONALITY = 2048
-IMAGE_SHAPE = [112, 112, 3]
+FINE_TUNE = True  # options.fine_tune
+PROJECTOR_DIMENSIONALITY = 4096
+IMAGE_SHAPE = [224, 224, 3]
 RANDOM_SEED = 42
 BATCH_SIZE = 128
 LEARNING_RATE = 5e-4
 PATIENCE = 100
 EPOCHS = 30
 
-PRETRAINED_DIR = 'encoder_2048.h5'
+PRETRAINED_DIR = 'trained_models/encoders/encoder_tissue_224_4096_256_5_0.001/encoder_4096.h5'
 
-ROOT_SAVE_DIR = ''  # 'trained_models/resnet_classifiers/1024/'
-NAME = f'{"supervised" if TRAIN_FROM_SCRATCH else "barlow"}' + \
-       f'{"_fine_tune" if not TRAIN_FROM_SCRATCH and FINE_TUNE else ""}_{DATASET_CONFIG["train_split"]}'
+ROOT_SAVE_DIR = 'trained_models/classifiers/0708'
+# endregion
 
-SAVE_DIR = os.path.join(ROOT_SAVE_DIR, NAME)
-print('Model name:', NAME)
+
+# ==================================================================================================================== #
+# Saving information
+# ==================================================================================================================== #
+# region
+
+dataset_type = 'tissue' if 'tissue' in DATASET_CONFIG['dataset_dir'] else 'cell'
+if TRAIN_FROM_SCRATCH:
+    model_type = 'supervised'
+elif FINE_TUNE:
+    model_type = 'barlow_fine_tune'
+else:
+    model_type = 'barlow'
+model_name = f'{model_type}_' + \
+             f'{dataset_type}_{IMAGE_SHAPE[0]}_{DATASET_CONFIG["train_split"]}_' + \
+             f'{PROJECTOR_DIMENSIONALITY}_' + \
+             f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE}'
+print('Model name:', model_name)
+
+SAVE_DIR = os.path.join(ROOT_SAVE_DIR, model_name)
+
+try:
+    os.makedirs(SAVE_DIR, exist_ok=False)
+except:
+    input_ = input('save_dir already exists, continue? (Y/n)  >> ')
+    if input_ != 'Y':
+        raise ValueError
+        
+with open(os.path.join(SAVE_DIR, 'dataset_config.json'), 'w') as file:
+    json.dump(DATASET_CONFIG, file, indent=4)
 # endregion
 
 
@@ -108,10 +137,24 @@ print('Model name:', NAME)
 # region
 
 datagen, datagen_val, datagen_test = get_generators(
-    ['train', 'val', 'test'], IMAGE_SHAPE, BATCH_SIZE,
+    ['train', 'val', 'test'], 
+    IMAGE_SHAPE, 1,
     RANDOM_SEED, config=DATASET_CONFIG
 )
+ds = create_dataset(datagen)
+ds = ds.batch(BATCH_SIZE)
+ds = ds.prefetch(40)
+
+ds_val = create_dataset(datagen_val)
+ds_val = ds_val.batch(BATCH_SIZE)
+ds_val = ds_val.prefetch(40)
+
+ds_test = create_dataset(datagen_test)
+ds_test = ds_test.batch(BATCH_SIZE)
+ds_test = ds_test.prefetch(40)
+
 CLASSES = list(datagen.class_indices.keys())
+STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
 # endregion
 
 
@@ -120,22 +163,26 @@ CLASSES = list(datagen.class_indices.keys())
 # ==================================================================================================================== #
 # region
 
-resnet_enc = resnet20.get_network(
-    hidden_dim=PROJECTOR_DIMENSIONALITY,
-    use_pred=False,
-    return_before_head=False,
-    input_shape=IMAGE_SHAPE
-)
-if not TRAIN_FROM_SCRATCH:
-    resnet_enc.load_weights(PRETRAINED_DIR)
-    # Freeze the weights
-    if not FINE_TUNE:
-        resnet_enc.trainable = False
+strategy = tf.distribute.MirroredStrategy()
+print('Number of devices:', strategy.num_replicas_in_sync)
 
-inputs = Input(IMAGE_SHAPE)
-x = resnet_enc(inputs)
-x = Dense(len(CLASSES), activation='softmax', kernel_initializer='he_normal')(x)
-model = Model(inputs=inputs, outputs=x)
+with strategy.scope():
+    resnet_enc = resnet20.get_network(
+        hidden_dim=PROJECTOR_DIMENSIONALITY,
+        use_pred=False,
+        return_before_head=False,
+        input_shape=IMAGE_SHAPE
+    )
+    if not TRAIN_FROM_SCRATCH:
+        resnet_enc.load_weights(PRETRAINED_DIR)
+        # Freeze the weights
+        if not FINE_TUNE:
+            resnet_enc.trainable = False
+
+    inputs = Input(IMAGE_SHAPE)
+    x = resnet_enc(inputs)
+    x = Dense(len(CLASSES), activation='softmax', kernel_initializer='he_normal')(x)
+    model = Model(inputs=inputs, outputs=x)
 # endregion
 
 
@@ -144,15 +191,13 @@ model = Model(inputs=inputs, outputs=x)
 # ==================================================================================================================== #
 # region
 
-os.mkdir(SAVE_DIR)
-
 # Save the dataset config
 with open(os.path.join(SAVE_DIR, 'dataset_config.json'), 'w') as file:
     json.dump(DATASET_CONFIG, file)
 
 es = EarlyStopping(monitor='val_acc', mode='max', verbose=1, patience=PATIENCE)
 mc = ModelCheckpoint(
-    os.path.join(SAVE_DIR, NAME + '.h5'),
+    os.path.join(SAVE_DIR, 'classifier.h5'),
     monitor='val_acc', mode='max',
     verbose=1,
     save_best_only=True, save_weights_only=True
@@ -163,7 +208,6 @@ tensorboard_callback = TensorBoard(
 )
 
 # Set up optimizer
-STEPS_PER_EPOCH = len(datagen)
 WARMUP_EPOCHS = 0  # 10
 WARMUP_STEPS = int(WARMUP_EPOCHS * STEPS_PER_EPOCH)
 
@@ -180,34 +224,34 @@ lr_decay_fn = lr_scheduler.WarmUpCosine(
 # plt.xlabel("Train Step")
 # plt.show()
 
-# SGD with momentum and weight decay of 1e-6
-optimizer = SGDW(learning_rate=lr_decay_fn, momentum=0.9, nesterov=False, weight_decay=1e-6)
+with strategy.scope():
+    # SGD with momentum and weight decay of 1e-6
+    optimizer = SGDW(learning_rate=lr_decay_fn, momentum=0.9, nesterov=False, weight_decay=1e-6)
 
-model.compile(
-    optimizer=optimizer,
-    loss='categorical_crossentropy',
-    metrics=[
-        'acc',
-        tf.keras.metrics.TopKCategoricalAccuracy(k=2, name="top_2_accuracy"),
-        MatthewsCorrelationCoefficient(num_classes=len(CLASSES), name='MCC')
-    ]
-)
-# model.summary()
+    model.compile(
+        optimizer=optimizer,
+        loss='categorical_crossentropy',
+        metrics=[
+            'acc',
+            tf.keras.metrics.TopKCategoricalAccuracy(k=2, name="top_2_accuracy"),
+            MatthewsCorrelationCoefficient(num_classes=len(CLASSES), name='MCC')
+        ]
+    )
 
-model.evaluate(datagen_test)
+model.evaluate(ds_test)
 
 # Save training history
 history = model.fit(
-    datagen,
+    ds,
     epochs=EPOCHS,
-    validation_data=datagen_val,
+    validation_data=ds_val,
     callbacks=[mc, es, tensorboard_callback]
 )
-with open(os.path.join(SAVE_DIR, NAME + '_history.pickle'), 'wb') as file:
+with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
     pickle.dump(history.history, file)
 
 
-model.load_weights(os.path.join(SAVE_DIR, NAME + '.h5'))
-model.layers[1].save_weights(os.path.join(SAVE_DIR, 'resnet_enc_' + NAME + '.h5'))
-model.evaluate(datagen_test)
+model.load_weights(os.path.join(SAVE_DIR, 'classifier.h5'))
+model.layers[1].save_weights(os.path.join(SAVE_DIR, 'resnet_enc.h5'))
+model.evaluate(ds_test)
 # endregion

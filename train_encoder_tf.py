@@ -11,6 +11,7 @@ from tensorflow.keras.callbacks import EarlyStopping, Callback
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from datetime import datetime
 import pickle
+import json
 import os
 
 
@@ -20,12 +21,13 @@ import os
 # region
 
 VERBOSE = 1
-BATCH_SIZE = 32
+BATCH_SIZE = 256
 PATIENCE = 30
-EPOCHS = 1
-IMAGE_SHAPE = [32, 32, 3]
+EPOCHS = 5
+IMAGE_SHAPE = [224, 224, 3]
 FILTER_SIZE = 3
-PROJECTOR_DIMENSIONALITY = 2048
+PROJECTOR_DIMENSIONALITY = 4096
+LEARNING_RATE_BASE = 1e-3
 
 PREPROCESSING_CONFIG = {
     'vertical_flip_probability': 0.5,
@@ -40,8 +42,8 @@ PREPROCESSING_CONFIG = {
 }
 RANDOM_SEED = 42
 
-MODEL_WEIGHTS = None  # 'trained_models/encoder_2048.h5'
-SAVE_DIR = ''  # 'trained_models'
+MODEL_WEIGHTS = None  # if continuing training
+ROOT_SAVE_DIR = 'trained_models/encoders'  # base directory to save at
 
 DATASET_CONFIG = {
     'split': 'tissue_classification/fold_test.csv',
@@ -51,6 +53,33 @@ DATASET_CONFIG = {
     'groups': {},
     'major_groups': []
 }
+# endregion
+
+
+# ==================================================================================================================== #
+# Saving information
+# ==================================================================================================================== #
+# region
+
+dataset_type = 'tissue' if 'tissue' in DATASET_CONFIG['dataset_dir'] else 'cell'
+model_name = f'encoder_{dataset_type}_{IMAGE_SHAPE[0]}_{PROJECTOR_DIMENSIONALITY}_' + \
+             f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE_BASE}'
+print('Model name:', model_name)
+
+SAVE_DIR = os.path.join(ROOT_SAVE_DIR, model_name)
+
+try:
+    os.makedirs(SAVE_DIR, exist_ok=False)
+except:
+    input_ = input('save_dir already exists, continue? (Y/n)  >> ')
+    if input_ != 'Y':
+        raise ValueError
+
+with open(os.path.join(SAVE_DIR, 'preprocessing_config.json'), 'w') as file:
+    json.dump(PREPROCESSING_CONFIG, file, indent=4)
+
+with open(os.path.join(SAVE_DIR, 'dataset_config.json'), 'w') as file:
+    json.dump(DATASET_CONFIG, file, indent=4)
 # endregion
 
 
@@ -93,7 +122,7 @@ ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.
 
 dataset = tf.data.Dataset.zip((ds_a, ds_b))
 dataset = dataset.batch(BATCH_SIZE)
-dataset = dataset.prefetch(10)
+dataset = dataset.prefetch(40)
 
 
 STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
@@ -127,7 +156,7 @@ with strategy.scope():
     WARMUP_STEPS = int(WARMUP_EPOCHS * STEPS_PER_EPOCH)
 
     lr_decay_fn = lr_scheduler.WarmUpCosine(
-        learning_rate_base=1e-3,
+        learning_rate_base=LEARNING_RATE_BASE,
         total_steps=EPOCHS * STEPS_PER_EPOCH,
         warmup_learning_rate=0.0,
         warmup_steps=WARMUP_STEPS
@@ -151,7 +180,7 @@ with strategy.scope():
 class ModelCheckpoint(Callback):
     def __init__(self):
         super().__init__()
-        self.save_dir = os.path.join(SAVE_DIR, f'encoder_{PROJECTOR_DIMENSIONALITY}.h5')
+        self.save_dir = os.path.join(SAVE_DIR, 'encoder.h5')
         self.min_loss = 1e5
 
     def on_epoch_end(self, epoch, logs=None):
@@ -176,6 +205,6 @@ history = barlow_twins.fit(
     callbacks=[es, mc, tboard]
 )
 
-with open('trained_models/resnet_classifiers/1024/history.pickle', 'wb') as file:
+with open(os.path.join(SAVE_DIR, 'history.pickle', 'wb')) as file:
     pickle.dump(history.history, file)
 # endregion

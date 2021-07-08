@@ -1,4 +1,5 @@
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+import tensorflow as tf
 import pandas as pd
 import numpy as np
 import os
@@ -95,3 +96,11 @@ def get_generators(splits, image_shape, batch_size,
                 generators[-1].append(datagen)
 
     return generators
+
+
+def create_dataset(datagen):
+    def generator():
+        while True:
+            # Retrieve the images
+            yield datagen.next()[0]
+    return tf.data.Dataset.from_generator(generator, output_types='float32')
