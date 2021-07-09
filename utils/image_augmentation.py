@@ -1,6 +1,7 @@
 import imgaug.augmenters as iaa
 import tensorflow as tf
 import tensorflow_addons as tfa
+import numpy as np
 
 
 def get_preprocessing_function(config, view):
@@ -55,7 +56,6 @@ def get_preprocessing_function(config, view):
 
 
 def augment(x: tf.Tensor, view, filter_size, config) -> tf.Tensor:
-    # Gaussian blur's sigma is fixed at 1
     # Input must be clipped into the range of [0, 1]
 
     # Random 90-degree rotations
@@ -81,11 +81,28 @@ def augment(x: tf.Tensor, view, filter_size, config) -> tf.Tensor:
             for j in range(len(funcs)):
                 if i == j:
                     x = funcs[j]()
-    
-    if tf.random.uniform(shape=[]) < config['gaussian_blurring_probability'][view]:
-        x = tfa.image.gaussian_filter2d(x, filter_shape=filter_size, sigma=1)
+
+    # Gaussian blur currently implemented through keras layer
+    # if tf.random.uniform(shape=[]) < config['gaussian_blurring_probability'][view]:
+    #     x = tfa.image.gaussian_filter2d(x, filter_shape=filter_size, sigma=1)
 
     if tf.random.uniform(shape=[]) < config['solarization_probability'][view]:
         x = tf.where(x < 0.5, x, 1 - x)
 
     return x
+
+
+def get_gaussian_filter(shape=(3, 3), sigma=0.5):
+    """
+    2D gaussian mask - should give the same result as MATLAB's
+    fspecial('gaussian',[shape],[sigma])
+    """
+    m, n = [(ss - 1.) / 2. for ss in shape]
+    y, x = np.ogrid[-m:m + 1, -n:n + 1]
+    h = np.exp(-(x * x + y * y) / (2. * sigma * sigma))
+    h[h < np.finfo(h.dtype).eps * h.max()] = 0
+    sumh = h.sum()
+    if sumh != 0:
+        h /= sumh
+
+    return h

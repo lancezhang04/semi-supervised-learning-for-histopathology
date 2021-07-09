@@ -34,7 +34,7 @@ parser.add_option('--no-color', dest='color', default=True, action='store_false'
 VERBOSE = 1
 PATIENCE = 30
 EPOCHS = 1
-BATCH_SIZE = 96
+BATCH_SIZE = 256
 
 IMAGE_SHAPE = [224, 224, 3]
 FILTER_SIZE = 23
@@ -50,7 +50,7 @@ PREPROCESSING_CONFIG = {
     'contrast_adjustment_max_intensity': 0.4,
     'color_adjustment_max_intensity': 0.2,
     'hue_adjustment_max_intensity': 0.1,
-    'gaussian_blurring_probability': [1.0, 0.1],
+    'gaussian_blurring_probability': [1, 0.1],
     'solarization_probability': [0, 0.2]
 }
 
@@ -152,7 +152,7 @@ TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
 # ==================================================================================================================== #
 # region
 
-strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
+strategy = tf.distribute.MirroredStrategy()
 print('Number of devices:', strategy.num_replicas_in_sync)
 
 with strategy.scope():
@@ -168,6 +168,25 @@ with strategy.scope():
         if VERBOSE:
             print('Using (pretrained) model weights')
 
+    from tensorflow.keras.layers import Input, DepthwiseConv2D
+    from tensorflow.keras.models import Model
+    from utils.image_augmentation import get_gaussian_filter
+
+    kernel_weights = get_gaussian_filter((FILTER_SIZE, FILTER_SIZE), sigma=1)
+    in_channels = 3
+    kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+    kernel_weights = np.repeat(kernel_weights, in_channels, axis=-1)
+    kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+    blur_layer = DepthwiseConv2D(FILTER_SIZE, use_bias=False, padding='same')
+
+    inputs = Input(IMAGE_SHAPE)
+    outputs = blur_layer(inputs)
+    blur_layer = Model(inputs=inputs, outputs=outputs)
+
+    blur_layer.layers[1].set_weights([kernel_weights])
+    blur_layer.trainable = False
+    print(blur_layer.layers[1].weights[0][0, 0, :, 0])
+
     # Load optimizer
     WARMUP_EPOCHS = int(EPOCHS * 0.1)
     WARMUP_STEPS = int(WARMUP_EPOCHS * STEPS_PER_EPOCH)
@@ -180,10 +199,8 @@ with strategy.scope():
     )
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
 
-
     # Get model
-    resnet_enc.trainable = True
-    barlow_twins = BarlowTwins(resnet_enc)
+    barlow_twins = BarlowTwins(resnet_enc, blur_layer=blur_layer, preprocessing_config=PREPROCESSING_CONFIG)
     barlow_twins.compile(optimizer=optimizer)
 # endregion
 
@@ -221,6 +238,8 @@ history = barlow_twins.fit(
     steps_per_epoch=STEPS_PER_EPOCH,
     callbacks=[es, mc]
 )
+
+print(blur_layer.layers[1].weights[0][0, 0, :, 0])
 
 with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
     pickle.dump(history.history, file)
