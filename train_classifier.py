@@ -7,19 +7,24 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoa
 from tensorflow.keras.models import Model
 from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 import tensorflow as tf
+
 from utils.models import resnet20
 from utils.train import lr_scheduler
 from utils.datasets import get_generators, create_classifier_dataset
+
 from optparse import OptionParser
 from datetime import datetime
+import numpy as np
 import pickle
 import json
 import os
 
 
 parser = OptionParser()
-parser.add_option('-t', '--train_from_scratch', dest='train_from_scratch', default=False, action='store_true')
-parser.add_option('-f', '--fine_tune', dest='fine_tune', default=False, action='store_true')
+parser.add_option('--root-save-dir', dest='root_save_dir', type='string', default='trained_models/classifiers')
+parser.add_option('-p', '--pretrained_dir', type='string', 
+                  default='trained_models/encoders/encoder_tissue_224_4096_256_5_0.001/encoder_4096.h5')
+parser.add_option('-s', '--suffix', type='string', default='')
 (options, args) = parser.parse_args()
 
 
@@ -83,19 +88,21 @@ DATASET_CONFIG = {
 # ==================================================================================================================== #
 # region
 
-TRAIN_FROM_SCRATCH = True  # options.train_from_scratch
-FINE_TUNE = True  # options.fine_tune
-PROJECTOR_DIMENSIONALITY = 4096
+TRAIN_FROM_SCRATCH = False
+FINE_TUNE = True
+PROJECTOR_DIMENSIONALITY = 2048
 IMAGE_SHAPE = [224, 224, 3]
 RANDOM_SEED = 42
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 LEARNING_RATE = 5e-4
 PATIENCE = 100
 EPOCHS = 30
 
-PRETRAINED_DIR = 'trained_models/encoders/encoder_tissue_224_4096_256_5_0.001/encoder_4096.h5'
+PRETRAINED_DIR = options.pretrained_dir
+ROOT_SAVE_DIR = options.root_save_dir
 
-ROOT_SAVE_DIR = 'trained_models/classifiers/0708'
+np.random.seed(RANDOM_SEED)
+tf.random.set_seed(RANDOM_SEED)
 # endregion
 
 
@@ -114,7 +121,7 @@ else:
 model_name = f'{model_type}_' + \
              f'{dataset_type}_{IMAGE_SHAPE[0]}_{DATASET_CONFIG["train_split"]}_' + \
              f'{PROJECTOR_DIMENSIONALITY}_' + \
-             f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE}'
+             f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE}' + options.suffix
 print('Model name:', model_name)
 
 SAVE_DIR = os.path.join(ROOT_SAVE_DIR, model_name)
@@ -146,15 +153,15 @@ STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
 
 ds = create_classifier_dataset(datagen, IMAGE_SHAPE, len(CLASSES))
 ds = ds.batch(BATCH_SIZE)
-ds = ds.prefetch(40)
+ds = ds.prefetch(200)
 
 ds_val = create_classifier_dataset(datagen_val, IMAGE_SHAPE, len(CLASSES))
 ds_val = ds_val.batch(BATCH_SIZE)
-ds_val = ds_val.prefetch(40)
+ds_val = ds_val.prefetch(200)
 
 ds_test = create_classifier_dataset(datagen_test, IMAGE_SHAPE, len(CLASSES))
 ds_test = ds_test.batch(BATCH_SIZE)
-ds_test = ds_test.prefetch(40)
+ds_test = ds_test.prefetch(200)
 # endregion
 
 
@@ -163,7 +170,7 @@ ds_test = ds_test.prefetch(40)
 # ==================================================================================================================== #
 # region
 
-strategy = tf.distribute.MirroredStrategy()
+strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
 print('Number of devices:', strategy.num_replicas_in_sync)
 
 with strategy.scope():
@@ -174,7 +181,7 @@ with strategy.scope():
         input_shape=IMAGE_SHAPE
     )
     if not TRAIN_FROM_SCRATCH:
-        resnet_enc.load_weights(PRETRAINED_DIR)
+        resnet_enc.load_weights(os.path.join(PRETRAINED_DIR, 'encoder.h5'))
         # Freeze the weights
         if not FINE_TUNE:
             resnet_enc.trainable = False
@@ -202,10 +209,11 @@ mc = ModelCheckpoint(
     verbose=1,
     save_best_only=True, save_weights_only=True
 )
-tensorboard_callback = TensorBoard(
-    log_dir=os.path.join(SAVE_DIR, datetime.now().strftime('%Y%m%d-%H%M%S') + '.log'),
-    update_freq='batch'
-)
+
+# tensorboard_callback = TensorBoard(
+#     log_dir=os.path.join(SAVE_DIR, datetime.now().strftime('%Y%m%d-%H%M%S') + '.log'),
+#     update_freq='batch'
+# )
 
 # Set up optimizer
 WARMUP_EPOCHS = 0  # 10
@@ -238,14 +246,17 @@ with strategy.scope():
         ]
     )
 
-model.evaluate(ds_test)
+# model.evaluate(ds_test, steps=len(datagen_test) // BATCH_SIZE)
 
+print('Steps per epoch:', STEPS_PER_EPOCH)
 # Save training history
 history = model.fit(
     ds,
     epochs=EPOCHS,
+    steps_per_epoch=STEPS_PER_EPOCH,
+    validation_steps=len(datagen_val) // BATCH_SIZE,
     validation_data=ds_val,
-    callbacks=[mc, es, tensorboard_callback]
+    callbacks=[mc, es]
 )
 with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
     pickle.dump(history.history, file)
@@ -253,5 +264,5 @@ with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
 
 model.load_weights(os.path.join(SAVE_DIR, 'classifier.h5'))
 model.layers[1].save_weights(os.path.join(SAVE_DIR, 'resnet_enc.h5'))
-model.evaluate(ds_test)
+model.evaluate(ds_test, steps=len(datagen_test) // BATCH_SIZE)
 # endregion

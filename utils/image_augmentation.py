@@ -54,22 +54,25 @@ def get_preprocessing_function(config, view):
     return aug
 
 
-def augment(x: tf.Tensor, view, filter_size) -> tf.Tensor:
+def augment(x: tf.Tensor, view, filter_size, config) -> tf.Tensor:
     # Gaussian blur's sigma is fixed at 1
     # Input must be clipped into the range of [0, 1]
 
     # Random 90-degree rotations
-    x = tf.image.rot90(x, tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
-    # Random horizontal and vertical flips
-    x = tf.image.random_flip_left_right(x)
-    x = tf.image.random_flip_up_down(x)
+    # x = tf.image.rot90(x, tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
 
-    if tf.random.uniform(shape=[]) < 0.8:
+    # Random horizontal and vertical flips
+    x = tf.image.random_flip_up_down(x)
+    x = tf.image.random_flip_left_right(x)
+
+    if tf.random.uniform(shape=[]) < config['color_jittering']:
         funcs = [
-            lambda: tf.image.random_hue(x, 0.1),
-            lambda: tf.image.random_saturation(x, 0.8, 1.2),
-            lambda: tf.image.random_brightness(x, 0.4),
-            lambda: tf.image.random_contrast(x, 0.6, 1.4),
+            lambda: tf.image.random_hue(x, config['hue_adjustment_max_intensity']),
+            lambda: tf.image.random_saturation(x, 1 - config['hue_adjustment_max_intensity'],
+                                               1 + config['hue_adjustment_max_intensity']),
+            lambda: tf.image.random_brightness(x, config['brightness_adjustment_max_intensity']),
+            lambda: tf.image.random_contrast(x, 1 - config['contrast_adjustment_max_intensity'],
+                                             1 + config['contrast_adjustment_max_intensity'])
         ]
 
         seq = tf.random.shuffle([i for i in range(len(funcs))])
@@ -78,11 +81,11 @@ def augment(x: tf.Tensor, view, filter_size) -> tf.Tensor:
             for j in range(len(funcs)):
                 if i == j:
                     x = funcs[j]()
-
-    if tf.random.uniform(shape=[]) < [1.0, 0.1][view]:
+    
+    if tf.random.uniform(shape=[]) < config['gaussian_blurring_probability'][view]:
         x = tfa.image.gaussian_filter2d(x, filter_shape=filter_size, sigma=1)
 
-    if tf.random.uniform(shape=[]) < [0, 0.2][view]:
+    if tf.random.uniform(shape=[]) < config['solarization_probability'][view]:
         x = tf.where(x < 0.5, x, 1 - x)
 
     return x

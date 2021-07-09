@@ -1,6 +1,7 @@
 from silence_tensorflow import silence_tensorflow
 silence_tensorflow()
 
+import tensorflow as tf
 from sklearn.metrics import confusion_matrix, roc_auc_score
 from utils.train.visualization import visualize_training
 from utils.datasets import get_generators
@@ -14,8 +15,7 @@ import json
 import os
 
 parser = OptionParser()
-parser.add_option('-d', '--dir', dest='dir', default='trained_models/0707/barlow_fine_tune_0.5')
-# parser.add_option('-n', '--name', dest='name', default='supervised_0.85')
+parser.add_option('-d', '--dir', dest='dir', default='trained_models/classifiers/0707/supervised_0.5')
 parser.add_option('-v', '--no-visualization', dest='show_training_visualization', default=True, action='store_false')
 parser.add_option('-s', '--no-stats', dest='calculate_stats', default=True, action='store_false')
 (options, args) = parser.parse_args()
@@ -38,6 +38,8 @@ IMAGE_SHAPE = [112, 112, 3]
 PROJECTOR_DIMENSIONALITY = 2048
 RANDOM_SEED = 42
 BATCH_SIZE = 128
+
+tf.random.set_seed(RANDOM_SEED)
 # endregion
 
 
@@ -47,7 +49,7 @@ BATCH_SIZE = 128
 # region
 
 if SHOW_TRAINING_VISUALIZATION:
-    visualize_training(os.path.join(DIR, NAME + '_history.pickle'))
+    visualize_training(os.path.join(DIR, 'history.pickle'))
 # endregion
 
 

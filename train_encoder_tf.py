@@ -1,19 +1,30 @@
 from silence_tensorflow import silence_tensorflow
 silence_tensorflow()
 
+import tensorflow as tf
+from tensorflow.keras.callbacks import EarlyStopping, Callback
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
 from utils import image_augmentation
 from utils.train import lr_scheduler
 from utils.models import resnet20
 from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df, create_encoder_dataset
-import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, Callback
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+from optparse import OptionParser
 from datetime import datetime
+import numpy as np
 import pickle
 import json
 import os
 
+
+parser = OptionParser()
+parser.add_option('-s', '--suffix', type='string', default='')
+parser.add_option('--root-save-dir', dest='root_save_dir', type='string', default='trained_models/encoders')
+parser.add_option('--no-blur', dest='blur', default=True, action='store_false')
+parser.add_option('--no-color', dest='color', default=True, action='store_false')
+(options, args) = parser.parse_args()
 
 # ==================================================================================================================== #
 # Configuration
@@ -21,12 +32,14 @@ import os
 # region
 
 VERBOSE = 1
-BATCH_SIZE = 256
 PATIENCE = 30
-EPOCHS = 5
+EPOCHS = 1
+BATCH_SIZE = 96
+
 IMAGE_SHAPE = [224, 224, 3]
-FILTER_SIZE = 3
-PROJECTOR_DIMENSIONALITY = 4096
+FILTER_SIZE = 23
+
+PROJECTOR_DIMENSIONALITY = 2048
 LEARNING_RATE_BASE = 1e-3
 
 PREPROCESSING_CONFIG = {
@@ -40,10 +53,9 @@ PREPROCESSING_CONFIG = {
     'gaussian_blurring_probability': [1.0, 0.1],
     'solarization_probability': [0, 0.2]
 }
-RANDOM_SEED = 42
 
 MODEL_WEIGHTS = None  # if continuing training
-ROOT_SAVE_DIR = 'trained_models/encoders'  # base directory to save at
+ROOT_SAVE_DIR = options.root_save_dir  # base directory to save at
 
 DATASET_CONFIG = {
     'split': 'tissue_classification/fold_test.csv',
@@ -53,6 +65,18 @@ DATASET_CONFIG = {
     'groups': {},
     'major_groups': []
 }
+
+RANDOM_SEED = 42
+np.random.seed(RANDOM_SEED)
+tf.random.set_seed(RANDOM_SEED)
+
+if not options.blur:
+    print('Not performing Gaussian blurring...')
+    PREPROCESSING_CONFIG['gaussian_blurring_probability'] = [0, 0]
+if not options.color:
+    print('Not performing color changes (jittering & solarization)...')
+    PREPROCESSING_CONFIG['color_jittering'] = 0
+    PREPROCESSING_CONFIG['solarization_probability'] = [0, 0]
 # endregion
 
 
@@ -63,7 +87,7 @@ DATASET_CONFIG = {
 
 dataset_type = 'tissue' if 'tissue' in DATASET_CONFIG['dataset_dir'] else 'cell'
 model_name = f'encoder_{dataset_type}_{IMAGE_SHAPE[0]}_{PROJECTOR_DIMENSIONALITY}_' + \
-             f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE_BASE}'
+             f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE_BASE}' + options.suffix
 print('Model name:', model_name)
 
 SAVE_DIR = os.path.join(ROOT_SAVE_DIR, model_name)
@@ -101,21 +125,21 @@ df[df['split'] == 'train'],
 
 ds_a = create_encoder_dataset(datagen)
 ds_a = ds_a.map(
-    lambda x: image_augmentation.augment(x, 0, FILTER_SIZE),
+    lambda x: image_augmentation.augment(x, 0, FILTER_SIZE, config=PREPROCESSING_CONFIG),
     num_parallel_calls=tf.data.experimental.AUTOTUNE
 )
 ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 ds_b = create_encoder_dataset(datagen)
 ds_b = ds_b.map(
-    lambda x: image_augmentation.augment(x, 1, FILTER_SIZE),
+    lambda x: image_augmentation.augment(x, 1, FILTER_SIZE, config=PREPROCESSING_CONFIG),
     num_parallel_calls=tf.data.experimental.AUTOTUNE
 )
 ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 dataset = tf.data.Dataset.zip((ds_a, ds_b))
 dataset = dataset.batch(BATCH_SIZE)
-dataset = dataset.prefetch(40)
+dataset = dataset.prefetch(6)
 
 
 STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
@@ -128,7 +152,7 @@ TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
 # ==================================================================================================================== #
 # region
 
-strategy = tf.distribute.MirroredStrategy()
+strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
 print('Number of devices:', strategy.num_replicas_in_sync)
 
 with strategy.scope():
@@ -188,16 +212,16 @@ es = EarlyStopping(monitor='loss', mode='min', verbose=1, patience=PATIENCE)
 mc = ModelCheckpoint()
 
 # For performance analysis
-logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
-tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
+# logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+# tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
 
 history = barlow_twins.fit(
     dataset,
     epochs=EPOCHS,
     steps_per_epoch=STEPS_PER_EPOCH,
-    callbacks=[es, mc, tboard]
+    callbacks=[es, mc]
 )
 
-with open(os.path.join(SAVE_DIR, 'history.pickle', 'wb')) as file:
+with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
     pickle.dump(history.history, file)
 # endregion
