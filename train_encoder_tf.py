@@ -7,7 +7,7 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from utils import image_augmentation
 from utils.train import lr_scheduler
-from utils.models import resnet20
+from utils.models import resnet
 from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df, create_encoder_dataset
 
@@ -34,12 +34,12 @@ parser.add_option('--no-color', dest='color', default=True, action='store_false'
 VERBOSE = 1
 PATIENCE = 30
 EPOCHS = 1
-BATCH_SIZE = 256
+BATCH_SIZE = 8
 
-IMAGE_SHAPE = [224, 224, 3]
-FILTER_SIZE = 23
+IMAGE_SHAPE = [64, 64, 3]
+FILTER_SIZE = 3
 
-PROJECTOR_DIMENSIONALITY = 2048
+PROJECTOR_DIMENSIONALITY = 512
 LEARNING_RATE_BASE = 1e-3
 
 PREPROCESSING_CONFIG = {
@@ -162,8 +162,16 @@ strategy = tf.distribute.MirroredStrategy()
 print('Number of devices:', strategy.num_replicas_in_sync)
 
 with strategy.scope():
-    # Make sure later that this is the correct model
-    resnet_enc = resnet20.get_network(
+    # -------------------
+    # Model      | n   |
+    # ResNet20   | 2   |
+    # ResNet56   | 6   |
+    # ResNet110  | 12  |
+    # ResNet164  | 18  |
+    # ResNet1001 | 111 |
+
+    resnet_enc = resnet.get_network(
+        n=2,
         hidden_dim=PROJECTOR_DIMENSIONALITY,
         use_pred=False,
         return_before_head=False,
@@ -237,6 +245,12 @@ mc = ModelCheckpoint()
 # For performance analysis
 # logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 # tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
+
+history = barlow_twins.fit(
+    dataset,
+    epochs=1,
+    steps_per_epoch=STEPS_PER_EPOCH
+)
 
 history = barlow_twins.fit(
     dataset,

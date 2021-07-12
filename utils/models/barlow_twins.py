@@ -15,31 +15,42 @@ class BarlowTwins(tf.keras.Model):
     def metrics(self):
         return [self.loss_tracker]
 
+    def blur_images(self, imgs, prob):
+        # Randomly blurs a batch of images according to a given probability
+
+        probs = tf.random.uniform(shape=[len(imgs)])
+        change_indices = tf.cast(tf.where(probs <= prob), 'int32')
+        keep_indices = tf.cast(tf.where(probs > prob), 'int32')
+        # print(len(change_indices))
+
+        shape = tf.shape(imgs)
+
+        imgs_blurred = self.blur_layer(imgs)
+        imgs_blurred = tf.gather(imgs_blurred, change_indices[:, -1])
+        imgs_keep = tf.gather(imgs, keep_indices[:, -1])
+
+        imgs = tf.scatter_nd(change_indices, imgs_blurred, shape)
+        imgs = tf.tensor_scatter_nd_add(imgs, keep_indices, imgs_keep)
+
+        return imgs
+
     def train_step(self, data):
-        # Unpack the data.
-        ds_one, ds_two = data
+        # Unpack the data
+        imgs_a, imgs_b = data
 
-        # Gaussian blurring
-        ds_one = tf.cond(
-            tf.random.uniform(shape=[]) < self.blur_probabilities[0],
-            true_fn=lambda: self.blur_layer(ds_one),
-            false_fn=lambda: ds_one
-        )
-        ds_two = tf.cond(
-            tf.random.uniform(shape=[]) < self.blur_probabilities[0],
-            true_fn=lambda: self.blur_layer(ds_two),
-            false_fn=lambda: ds_two
-        )
+        # Gaussian blurring (faster on GPU)
+        imgs_a = self.blur_images(imgs_a, self.blur_probabilities[0])
+        imgs_b = self.blur_images(imgs_b, self.blur_probabilities[1])
 
-        # Forward pass through the encoder and predictor.
+        # Forward pass through the encoder and predictor
         with tf.GradientTape() as tape:
-            z_a, z_b = self.encoder(ds_one, training=True), self.encoder(ds_two, training=True)
+            z_a, z_b = self.encoder(imgs_a, training=True), self.encoder(imgs_b, training=True)
             loss = compute_loss(z_a, z_b, self.lambd)
 
-        # Compute gradients and update the parameters.
+        # Compute gradients and update the parameters
         gradients = tape.gradient(loss, self.encoder.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.encoder.trainable_variables))
 
-        # Monitor loss.
+        # Monitor loss
         self.loss_tracker.update_state(loss)
         return {"loss": self.loss_tracker.result()}

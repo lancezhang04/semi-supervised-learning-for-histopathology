@@ -9,13 +9,18 @@ import os
 
 MASKS_DIR = 'masks'
 RGB_DIR = 'rgbs_colorNormalized'
-TARGET_DIR = 'tissue_classification'
+TARGET_DIR = 'test'
 
 PATCH_SIZE = 224
 STEP_SIZE = int(0.5 * PATCH_SIZE)
 
-df = pd.read_csv('meta/gtruth_codes.tsv', delimiter='\t')
-GT_CODES = dict(zip(df['GT_code'], df['label']))
+CLASSES_MODE = ['main', 'super'][1]  # use `main_classes` or `super_classes`
+df = pd.read_csv('region_GTcodes.csv', delimiter=',')
+
+# maps class code ==> class name
+classes_map = dict(zip(df[CLASSES_MODE + '_codes'], df[CLASSES_MODE + '_classes']))
+# maps ground truth codes (every group) ==> class codes (every class)
+gt_codes_map = dict(zip(df['GT_code'], df[CLASSES_MODE + '_codes']))
 
 
 os.makedirs(TARGET_DIR, exist_ok=True)
@@ -46,7 +51,7 @@ def generate_patches(img, mask, img_name, verbose=0):
 
             if max(ratios) >= 0.5:
                 tissue_type = unique[np.argmax(ratios)]
-                tissue_type = GT_CODES[tissue_type]
+                tissue_type = gt_codes[tissue_type]
             else:
                 continue
 

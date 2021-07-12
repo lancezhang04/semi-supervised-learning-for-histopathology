@@ -82,9 +82,9 @@ datagen = get_generators(
 if EMBEDDINGS_PATH is None:
     # Generate features
     print('Generating features...')
-    from utils.models import resnet20
+    from utils.models import resnet
 
-    resnet_enc = resnet20.get_network(
+    resnet_enc = resnet.get_network(
         hidden_dim=1024,
         use_pred=False,
         return_before_head=False,

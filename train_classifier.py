@@ -8,7 +8,7 @@ from tensorflow.keras.models import Model
 from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 import tensorflow as tf
 
-from utils.models import resnet20
+from utils.models import resnet
 from utils.train import lr_scheduler
 from utils.datasets import get_generators, create_classifier_dataset
 
@@ -174,7 +174,7 @@ strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
 print('Number of devices:', strategy.num_replicas_in_sync)
 
 with strategy.scope():
-    resnet_enc = resnet20.get_network(
+    resnet_enc = resnet.get_network(
         hidden_dim=PROJECTOR_DIMENSIONALITY,
         use_pred=False,
         return_before_head=False,
