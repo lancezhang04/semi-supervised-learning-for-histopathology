@@ -68,7 +68,7 @@ DATASET_CONFIG = {
 
 RANDOM_SEED = 42
 np.random.seed(RANDOM_SEED)
-tf.random.set_seed(RANDOM_SEED)
+# tf.random.set_seed(RANDOM_SEED)  # This might be messing up augmentation
 
 if not options.blur:
     print('Not performing Gaussian blurring...')
@@ -116,21 +116,27 @@ with open(os.path.join(SAVE_DIR, 'dataset_config.json'), 'w') as file:
 # Only using training set (and no validation set)
 df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
 
-datagen = ImageDataGenerator(rescale=1./225).flow_from_dataframe(
+datagen_a = ImageDataGenerator(rescale=1./225).flow_from_dataframe(
+df[df['split'] == 'train'],
+    seed=RANDOM_SEED,
+    target_size=IMAGE_SHAPE[:2], batch_size=1
+)
+
+datagen_b = ImageDataGenerator(rescale=1./225).flow_from_dataframe(
 df[df['split'] == 'train'],
     seed=RANDOM_SEED,
     target_size=IMAGE_SHAPE[:2], batch_size=1
 )
 
 
-ds_a = create_encoder_dataset(datagen)
+ds_a = create_encoder_dataset(datagen_a)
 ds_a = ds_a.map(
     lambda x: image_augmentation.augment(x, 0, FILTER_SIZE, config=PREPROCESSING_CONFIG),
     num_parallel_calls=tf.data.experimental.AUTOTUNE
 )
 ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-ds_b = create_encoder_dataset(datagen)
+ds_b = create_encoder_dataset(datagen_b)
 ds_b = ds_b.map(
     lambda x: image_augmentation.augment(x, 1, FILTER_SIZE, config=PREPROCESSING_CONFIG),
     num_parallel_calls=tf.data.experimental.AUTOTUNE
@@ -142,7 +148,7 @@ dataset = dataset.batch(BATCH_SIZE)
 dataset = dataset.prefetch(6)
 
 
-STEPS_PER_EPOCH = len(datagen) // BATCH_SIZE
+STEPS_PER_EPOCH = len(datagen_a) // BATCH_SIZE
 TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
 # endregion
 
@@ -185,7 +191,6 @@ with strategy.scope():
 
     blur_layer.layers[1].set_weights([kernel_weights])
     blur_layer.trainable = False
-    print(blur_layer.layers[1].weights[0][0, 0, :, 0])
 
     # Load optimizer
     WARMUP_EPOCHS = int(EPOCHS * 0.1)
@@ -202,6 +207,7 @@ with strategy.scope():
     # Get model
     barlow_twins = BarlowTwins(resnet_enc, blur_layer=blur_layer, preprocessing_config=PREPROCESSING_CONFIG)
     barlow_twins.compile(optimizer=optimizer)
+    print('Barlow twins blur probabilities:', barlow_twins.blur_probabilities)
 # endregion
 
 
@@ -238,8 +244,6 @@ history = barlow_twins.fit(
     steps_per_epoch=STEPS_PER_EPOCH,
     callbacks=[es, mc]
 )
-
-print(blur_layer.layers[1].weights[0][0, 0, :, 0])
 
 with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
     pickle.dump(history.history, file)
