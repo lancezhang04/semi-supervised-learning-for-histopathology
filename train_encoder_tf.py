@@ -215,7 +215,7 @@ with strategy.scope():
     # Get model
     barlow_twins = BarlowTwins(
             resnet_enc, blur_layer=blur_layer, 
-            preprocessing_config=PREPROCESSING_CONFIG),
+            preprocessing_config=PREPROCESSING_CONFIG,
             batch_size=BATCH_SIZE
     )
     barlow_twins.compile(optimizer=optimizer)
