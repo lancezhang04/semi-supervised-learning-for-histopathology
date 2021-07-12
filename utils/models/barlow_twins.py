@@ -3,11 +3,13 @@ import tensorflow as tf
 
 
 class BarlowTwins(tf.keras.Model):
-    def __init__(self, encoder, blur_layer, preprocessing_config, lambd=5e-3):
+    def __init__(self, encoder, blur_layer, preprocessing_config, batch_size, lambd=5e-3):
         super(BarlowTwins, self).__init__()
         self.encoder = encoder
         self.blur_layer = blur_layer
+
         self.blur_probabilities = preprocessing_config['gaussian_blurring_probability']
+        self.batch_size = batch_size
         self.lambd = lambd
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
 
@@ -18,7 +20,7 @@ class BarlowTwins(tf.keras.Model):
     def blur_images(self, imgs, prob):
         # Randomly blurs a batch of images according to a given probability
 
-        probs = tf.random.uniform(shape=[len(imgs)])
+        probs = tf.random.uniform(shape=[self.batch_size])  # [imgs.shape[0]])
         change_indices = tf.cast(tf.where(probs <= prob), 'int32')
         keep_indices = tf.cast(tf.where(probs > prob), 'int32')
         # print(len(change_indices))

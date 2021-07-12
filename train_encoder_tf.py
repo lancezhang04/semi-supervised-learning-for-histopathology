@@ -33,14 +33,14 @@ parser.add_option('--no-color', dest='color', default=True, action='store_false'
 
 VERBOSE = 1
 PATIENCE = 30
-EPOCHS = 1
-BATCH_SIZE = 8
+EPOCHS = 30
+BATCH_SIZE = 256
 
-IMAGE_SHAPE = [64, 64, 3]
-FILTER_SIZE = 3
+IMAGE_SHAPE = [224, 224, 3]
+FILTER_SIZE = 23
 
-PROJECTOR_DIMENSIONALITY = 512
-LEARNING_RATE_BASE = 1e-3
+PROJECTOR_DIMENSIONALITY = 1024
+LEARNING_RATE_BASE = 1e-5
 
 PREPROCESSING_CONFIG = {
     'vertical_flip_probability': 0.5,
@@ -213,7 +213,11 @@ with strategy.scope():
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
 
     # Get model
-    barlow_twins = BarlowTwins(resnet_enc, blur_layer=blur_layer, preprocessing_config=PREPROCESSING_CONFIG)
+    barlow_twins = BarlowTwins(
+            resnet_enc, blur_layer=blur_layer, 
+            preprocessing_config=PREPROCESSING_CONFIG),
+            batch_size=BATCH_SIZE
+    )
     barlow_twins.compile(optimizer=optimizer)
     print('Barlow twins blur probabilities:', barlow_twins.blur_probabilities)
 # endregion
