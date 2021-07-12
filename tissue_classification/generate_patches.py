@@ -1,5 +1,6 @@
 from collections import defaultdict
 from generate_splits import generate_splits
+from utils.detect_whitespace import detect_whitespace
 import cv2
 from tqdm import tqdm
 import numpy as np
@@ -13,15 +14,20 @@ TARGET_DIR = 'test'
 
 PATCH_SIZE = 224
 STEP_SIZE = int(0.5 * PATCH_SIZE)
+THRESHOLD = 0.8
 
 CLASSES_MODE = ['main', 'super'][1]  # use `main_classes` or `super_classes`
 df = pd.read_csv('region_GTcodes.csv', delimiter=',')
 
-# maps class code ==> class name
+# Maps class code ==> class name
 classes_map = dict(zip(df[CLASSES_MODE + '_codes'], df[CLASSES_MODE + '_classes']))
-# maps ground truth codes (every group) ==> class codes (every class)
+# Maps ground truth codes (every group) ==> class codes (every class)
 gt_codes_map = dict(zip(df['GT_code'], df[CLASSES_MODE + '_codes']))
 
+# For later usage on mask
+k, v = np.array(list(gt_codes_map.keys())), np.array(list(gt_codes_map.values()))
+sort_idx = k.argsort()
+k_sorted, v_sorted = k[sort_idx], v[sort_idx]
 
 os.makedirs(TARGET_DIR, exist_ok=True)
 
@@ -49,9 +55,9 @@ def generate_patches(img, mask, img_name, verbose=0):
             unique, counts = np.unique(patch_mask, return_counts=True)
             ratios = counts / (PATCH_SIZE ** 2)
 
-            if max(ratios) >= 0.5:
+            if max(ratios) >= THRESHOLD:
                 tissue_type = unique[np.argmax(ratios)]
-                tissue_type = gt_codes[tissue_type]
+                tissue_type = classes_map[tissue_type]
             else:
                 continue
 
@@ -83,6 +89,8 @@ if __name__ == '__main__':
                                       total=len(os.listdir(RGB_DIR)), ncols=100):
         image = cv2.imread(os.path.join(RGB_DIR, image_name))
         mask = cv2.imread(os.path.join(MASKS_DIR, mask_name))
+        mask = detect_whitespace(image, mask)  # detect whitespace and apply label
+        mask = v_sorted[np.searchsorted(k_sorted, mask)]
 
         patches_generated, tissue_type_counts = generate_patches(
             image, mask,

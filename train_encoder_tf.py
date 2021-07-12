@@ -35,6 +35,7 @@ VERBOSE = 1
 PATIENCE = 30
 EPOCHS = 30
 BATCH_SIZE = 256
+PREFETCH = 6
 
 IMAGE_SHAPE = [224, 224, 3]
 FILTER_SIZE = 23
@@ -145,7 +146,7 @@ ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.
 
 dataset = tf.data.Dataset.zip((ds_a, ds_b))
 dataset = dataset.batch(BATCH_SIZE)
-dataset = dataset.prefetch(6)
+dataset = dataset.prefetch(PREFETCH)
 
 
 STEPS_PER_EPOCH = len(datagen_a) // BATCH_SIZE
@@ -249,12 +250,6 @@ mc = ModelCheckpoint()
 # For performance analysis
 # logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 # tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
-
-history = barlow_twins.fit(
-    dataset,
-    epochs=1,
-    steps_per_epoch=STEPS_PER_EPOCH
-)
 
 history = barlow_twins.fit(
     dataset,
