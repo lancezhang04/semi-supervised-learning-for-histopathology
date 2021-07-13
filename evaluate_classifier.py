@@ -34,8 +34,8 @@ OVERRIDE_DATASET_DIR = None  # 'datasets/NuCLS_histogram_matching/NuCLS_histogra
 SHOW_TRAINING_VISUALIZATION = options.show_training_visualization
 CALCULATE_STATS = options.calculate_stats
 
-IMAGE_SHAPE = [112, 112, 3]
-PROJECTOR_DIMENSIONALITY = 2048
+IMAGE_SHAPE = [224, 224, 3]
+PROJECTOR_DIMENSIONALITY = 1024
 RANDOM_SEED = 42
 BATCH_SIZE = 128
 
@@ -105,7 +105,7 @@ if CALCULATE_STATS:
             MatthewsCorrelationCoefficient(num_classes=len(CLASSES), name='MCC')
         ]
     )
-    model.load_weights(os.path.join(DIR, NAME + '.h5'))
+    model.load_weights(os.path.join(DIR, 'classifier.h5'))
 
     # Loss and metrics
     print('\nall:')
