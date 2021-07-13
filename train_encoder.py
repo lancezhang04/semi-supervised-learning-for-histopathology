@@ -36,7 +36,7 @@ parser.add_option('--no-color', dest='color', default=True, action='store_false'
 
 VERBOSE = 1
 PATIENCE = 30
-EPOCHS = 3
+EPOCHS = 10
 BATCH_SIZE = 256
 PREFETCH = 6
 
@@ -210,7 +210,7 @@ with strategy.scope():
         warmup_learning_rate=0.0,
         warmup_steps=WARMUP_STEPS
     )
-    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
+    optimizer = tf.keras.optimizers.Adam(0)
 
     from utils.train.callbacks import LRFinder
     lr_finder = LRFinder(

@@ -9,7 +9,7 @@ class EncoderCheckpoint(Callback):
         super().__init__()
         self.save_dir = os.path.join(save_dir, 'encoder.h5')
         self.min_loss = 1e5
-        self.resent_enc = resnet_enc
+        self.resnet_enc = resnet_enc
 
     def on_epoch_end(self, epoch, logs=None):
         if logs['loss'] < self.min_loss:
