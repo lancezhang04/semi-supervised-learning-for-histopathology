@@ -251,6 +251,7 @@ mc = ModelCheckpoint()
 # logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 # tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
 
+
 history = barlow_twins.fit(
     dataset,
     epochs=EPOCHS,
