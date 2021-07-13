@@ -58,6 +58,8 @@ def generate_patches(img, mask, img_name, verbose=0):
             if max(ratios) >= THRESHOLD:
                 tissue_type = unique[np.argmax(ratios)]
                 tissue_type = classes_map[tissue_type]
+                if tissue_type.lower() == 'exclude':
+                    continue
             else:
                 continue
 
@@ -89,7 +91,9 @@ if __name__ == '__main__':
                                       total=len(os.listdir(RGB_DIR)), ncols=100):
         image = cv2.imread(os.path.join(RGB_DIR, image_name))
         mask = cv2.imread(os.path.join(MASKS_DIR, mask_name))
-        mask = detect_whitespace(image, mask)  # detect whitespace and apply label
+
+        # Detect whitespace and apply (grouped) label
+        mask = detect_whitespace(image, mask)
         mask = v_sorted[np.searchsorted(k_sorted, mask)]
 
         patches_generated, tissue_type_counts = generate_patches(

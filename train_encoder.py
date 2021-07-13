@@ -2,17 +2,20 @@ from silence_tensorflow import silence_tensorflow
 silence_tensorflow()
 
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, Callback
+from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Input, DepthwiseConv2D
+from tensorflow.keras.models import Model
 
+from utils.image_augmentation import get_gaussian_filter
 from utils import image_augmentation
 from utils.train import lr_scheduler
+from utils.train.callbacks import EncoderCheckpoint
 from utils.models import resnet
 from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df, create_encoder_dataset
 
 from optparse import OptionParser
-from datetime import datetime
 import numpy as np
 import pickle
 import json
@@ -41,7 +44,7 @@ IMAGE_SHAPE = [224, 224, 3]
 FILTER_SIZE = 23
 
 PROJECTOR_DIMENSIONALITY = 1024
-LEARNING_RATE_BASE = 1e-5
+LEARNING_RATE_BASE = 1e-6
 
 PREPROCESSING_CONFIG = {
     'vertical_flip_probability': 0.5,
@@ -183,10 +186,6 @@ with strategy.scope():
         if VERBOSE:
             print('Using (pretrained) model weights')
 
-    from tensorflow.keras.layers import Input, DepthwiseConv2D
-    from tensorflow.keras.models import Model
-    from utils.image_augmentation import get_gaussian_filter
-
     kernel_weights = get_gaussian_filter((FILTER_SIZE, FILTER_SIZE), sigma=1)
     in_channels = 3
     kernel_weights = np.expand_dims(kernel_weights, axis=-1)
@@ -229,28 +228,12 @@ with strategy.scope():
 # ==================================================================================================================== #
 # region
 
-# Saves the weights for the encoder only
-class ModelCheckpoint(Callback):
-    def __init__(self):
-        super().__init__()
-        self.save_dir = os.path.join(SAVE_DIR, 'encoder.h5')
-        self.min_loss = 1e5
-
-    def on_epoch_end(self, epoch, logs=None):
-        if logs['loss'] < self.min_loss:
-            self.min_loss = logs['loss']
-            print('\nSaving model, new lowest loss:', self.min_loss)
-            resnet_enc.save_weights(self.save_dir)
-
-
-# Might not be the best approach
 es = EarlyStopping(monitor='loss', mode='min', verbose=1, patience=PATIENCE)
-mc = ModelCheckpoint()
+mc = EncoderCheckpoint(resnet_enc, SAVE_DIR)
 
 # For performance analysis
 # logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 # tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
-
 
 history = barlow_twins.fit(
     dataset,
