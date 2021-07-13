@@ -31,4 +31,4 @@ utils/__pycache__
 meta.txt
 notebooks
 logs
-
+*.png

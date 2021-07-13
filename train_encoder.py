@@ -36,7 +36,7 @@ parser.add_option('--no-color', dest='color', default=True, action='store_false'
 
 VERBOSE = 1
 PATIENCE = 30
-EPOCHS = 30
+EPOCHS = 3
 BATCH_SIZE = 256
 PREFETCH = 6
 
@@ -212,6 +212,14 @@ with strategy.scope():
     )
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
 
+    from utils.train.callbacks import LRFinder
+    lr_finder = LRFinder(
+        min_lr=1e-9,
+        max_lr=1e-1,
+        steps_per_epoch=STEPS_PER_EPOCH,
+        epochs=EPOCHS
+    )
+
     # Get model
     barlow_twins = BarlowTwins(
             resnet_enc, blur_layer=blur_layer, 
@@ -239,9 +247,12 @@ history = barlow_twins.fit(
     dataset,
     epochs=EPOCHS,
     steps_per_epoch=STEPS_PER_EPOCH,
-    callbacks=[es, mc]
+    callbacks=[es, mc, lr_finder]
 )
 
 with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
     pickle.dump(history.history, file)
+
+lr_finder.plot_lr()
+lr_finder.plot_loss()
 # endregion
