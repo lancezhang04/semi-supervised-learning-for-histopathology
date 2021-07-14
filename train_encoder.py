@@ -140,7 +140,6 @@ datagen_b = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
     target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
 )
 
-
 ds_a = tf.data.Dataset.from_generator(lambda: [datagen_a.next()[0]], output_types='float32', output_shapes=[None] * 4)
 ds_a = ds_a.map(
     lambda x: image_augmentation.augment(x, 0, config=PREPROCESSING_CONFIG),
@@ -173,7 +172,7 @@ plt.show()
 
 
 print(datagen_a.batch_index)
-_ = next(iter(ds_a)) 
+_ = next(iter(dataset)) 
 print(datagen_a.batch_index)
 
 
@@ -271,9 +270,15 @@ mc = EncoderCheckpoint(resnet_enc, SAVE_DIR)
 
 # barlow_twins.train_step(next(iter(dataset)))
 
+
+def data_generator():
+    while True:
+        yield next(iter(dataset))
+
+
 print('Steps per epoch:', STEPS_PER_EPOCH)
-history = barlow_twins.fit(
-    dataset,
+history = barlow_twins.fit_generator(
+    data_generator(),
     epochs=EPOCHS,
     steps_per_epoch=STEPS_PER_EPOCH,
     callbacks=[es, mc]
