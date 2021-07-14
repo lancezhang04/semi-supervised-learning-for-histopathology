@@ -44,7 +44,7 @@ IMAGE_SHAPE = [64, 64, 3]
 FILTER_SIZE = 23
 
 PROJECTOR_DIMENSIONALITY = 1024
-LEARNING_RATE_BASE = 1e-6
+LEARNING_RATE_BASE = 1e-4
 
 PREPROCESSING_CONFIG = {
     'horizontal_flip': True,
@@ -277,8 +277,10 @@ def data_generator():
 
 
 print('Steps per epoch:', STEPS_PER_EPOCH)
-history = barlow_twins.fit_generator(
-    data_generator(),
+gen = data_generator()
+barlow_twins.built = True
+history = barlow_twins.fit(
+    gen,
     epochs=EPOCHS,
     steps_per_epoch=STEPS_PER_EPOCH,
     callbacks=[es, mc]
