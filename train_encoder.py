@@ -36,11 +36,11 @@ parser.add_option('--no-color', dest='color', default=True, action='store_false'
 
 VERBOSE = 1
 PATIENCE = 30
-EPOCHS = 10
-BATCH_SIZE = 10
-PREFETCH = 6
+EPOCHS = 30
+BATCH_SIZE = 256
+PREFETCH = 8
 
-IMAGE_SHAPE = [64, 64, 3]
+IMAGE_SHAPE = [224, 224, 3]
 FILTER_SIZE = 23
 
 PROJECTOR_DIMENSIONALITY = 1024
@@ -122,9 +122,6 @@ with open(os.path.join(SAVE_DIR, 'dataset_config.json'), 'w') as file:
 df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
 # Shuffle the dataset
 df = df.sample(frac=1).reset_index(drop=True)
-
-"""CHANGE LATER"""
-df = df[:200]
 
 datagen_a = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
     df[df['split'] == 'train'],
