@@ -1,4 +1,5 @@
 from silence_tensorflow import silence_tensorflow
+
 silence_tensorflow()
 
 import tensorflow as tf
@@ -13,14 +14,13 @@ from utils.train import lr_scheduler
 from utils.train.callbacks import EncoderCheckpoint
 from utils.models import resnet
 from utils.models.barlow_twins import BarlowTwins
-from utils.datasets import get_dataset_df, create_encoder_dataset
+from utils.datasets import get_dataset_df
 
 from optparse import OptionParser
 import numpy as np
 import pickle
 import json
 import os
-
 
 parser = OptionParser()
 parser.add_option('-s', '--suffix', type='string', default='')
@@ -37,17 +37,18 @@ parser.add_option('--no-color', dest='color', default=True, action='store_false'
 VERBOSE = 1
 PATIENCE = 30
 EPOCHS = 10
-BATCH_SIZE = 256
+BATCH_SIZE = 10
 PREFETCH = 6
 
-IMAGE_SHAPE = [224, 224, 3]
+IMAGE_SHAPE = [64, 64, 3]
 FILTER_SIZE = 23
 
 PROJECTOR_DIMENSIONALITY = 1024
 LEARNING_RATE_BASE = 1e-6
 
 PREPROCESSING_CONFIG = {
-    'vertical_flip_probability': 0.5,
+    'horizontal_flip': True,
+    'vertical_flip': True,
     'color_jittering': 0.8,
     'color_dropping_probability': 0.2,
     'brightness_adjustment_max_intensity': 0.4,
@@ -119,40 +120,73 @@ with open(os.path.join(SAVE_DIR, 'dataset_config.json'), 'w') as file:
 
 # Only using training set (and no validation set)
 df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED)
+# Shuffle the dataset
+df = df.sample(frac=1).reset_index(drop=True)
 
-datagen_a = ImageDataGenerator(rescale=1./225).flow_from_dataframe(
-df[df['split'] == 'train'],
+"""CHANGE LATER"""
+df = df[:200]
+
+datagen_a = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
+    df[df['split'] == 'train'],
+    shuffle=False,
     seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2], batch_size=1
+    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
 )
 
-datagen_b = ImageDataGenerator(rescale=1./225).flow_from_dataframe(
-df[df['split'] == 'train'],
+datagen_b = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
+    df[df['split'] == 'train'],
+    shuffle=False,
     seed=RANDOM_SEED,
-    target_size=IMAGE_SHAPE[:2], batch_size=1
+    target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
 )
 
 
-ds_a = create_encoder_dataset(datagen_a)
+ds_a = tf.data.Dataset.from_generator(lambda: [datagen_a.next()[0]], output_types='float32', output_shapes=[None] * 4)
 ds_a = ds_a.map(
-    lambda x: image_augmentation.augment(x, 0, FILTER_SIZE, config=PREPROCESSING_CONFIG),
+    lambda x: image_augmentation.augment(x, 0, config=PREPROCESSING_CONFIG),
     num_parallel_calls=tf.data.experimental.AUTOTUNE
 )
 ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-ds_b = create_encoder_dataset(datagen_b)
+ds_b = tf.data.Dataset.from_generator(lambda: [datagen_b.next()[0]], output_types='float32', output_shapes=[None] * 4)
 ds_b = ds_b.map(
-    lambda x: image_augmentation.augment(x, 1, FILTER_SIZE, config=PREPROCESSING_CONFIG),
+    lambda x: image_augmentation.augment(x, 1, config=PREPROCESSING_CONFIG),
     num_parallel_calls=tf.data.experimental.AUTOTUNE
 )
 ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
 dataset = tf.data.Dataset.zip((ds_a, ds_b))
-dataset = dataset.batch(BATCH_SIZE)
+# dataset = dataset.batch(BATCH_SIZE)
 dataset = dataset.prefetch(PREFETCH)
 
+'''
+imgs_a, imgs_b = next(iter(dataset))
+print(imgs_a.shape, imgs_b.shape)
+print(datagen_a.batch_index, datagen_b.batch_index)
 
-STEPS_PER_EPOCH = len(datagen_a) // BATCH_SIZE
+import matplotlib.pyplot as plt
+plt.imshow(np.vstack([
+    np.hstack(imgs_a), np.hstack(imgs_b)
+]))
+plt.axis('off')
+plt.show()
+
+
+print(datagen_a.batch_index)
+_ = next(iter(ds_a)) 
+print(datagen_a.batch_index)
+
+
+batch = datagen_a.next()[0]
+batch_aug = image_augmentation.augment(batch, 0.5)
+
+plt.imshow(np.vstack([
+    np.hstack(batch), np.hstack(batch_aug)
+]))
+plt.show()
+'''
+
+STEPS_PER_EPOCH = len(datagen_a)
 TOTAL_STEPS = STEPS_PER_EPOCH * EPOCHS
 # endregion
 
@@ -210,21 +244,13 @@ with strategy.scope():
         warmup_learning_rate=0.0,
         warmup_steps=WARMUP_STEPS
     )
-    optimizer = tf.keras.optimizers.Adam(0)
-
-    from utils.train.callbacks import LRFinder
-    lr_finder = LRFinder(
-        min_lr=1e-9,
-        max_lr=1e-1,
-        steps_per_epoch=STEPS_PER_EPOCH,
-        epochs=EPOCHS
-    )
+    optimizer = tf.keras.optimizers.Adam(lr_decay_fn)
 
     # Get model
     barlow_twins = BarlowTwins(
-            resnet_enc, blur_layer=blur_layer, 
-            preprocessing_config=PREPROCESSING_CONFIG,
-            batch_size=BATCH_SIZE
+        resnet_enc, blur_layer=blur_layer,
+        preprocessing_config=PREPROCESSING_CONFIG,
+        batch_size=BATCH_SIZE
     )
     barlow_twins.compile(optimizer=optimizer)
     print('Barlow twins blur probabilities:', barlow_twins.blur_probabilities)
@@ -243,16 +269,16 @@ mc = EncoderCheckpoint(resnet_enc, SAVE_DIR)
 # logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
 # tboard = tf.keras.callbacks.TensorBoard(log_dir=logs, histogram_freq=1, profile_batch='0,2867')
 
+# barlow_twins.train_step(next(iter(dataset)))
+
+print('Steps per epoch:', STEPS_PER_EPOCH)
 history = barlow_twins.fit(
     dataset,
     epochs=EPOCHS,
     steps_per_epoch=STEPS_PER_EPOCH,
-    callbacks=[es, mc, lr_finder]
+    callbacks=[es, mc]
 )
 
 with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:
     pickle.dump(history.history, file)
-
-lr_finder.plot_lr()
-lr_finder.plot_loss()
 # endregion

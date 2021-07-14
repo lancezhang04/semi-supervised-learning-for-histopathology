@@ -10,11 +10,11 @@ import os
 
 MASKS_DIR = 'masks'
 RGB_DIR = 'rgbs_colorNormalized'
-TARGET_DIR = 'test'
+TARGET_DIR = 'dataset'
 
 PATCH_SIZE = 224
 STEP_SIZE = int(0.5 * PATCH_SIZE)
-THRESHOLD = 0.8
+THRESHOLD = 0.5
 
 CLASSES_MODE = ['main', 'super'][1]  # use `main_classes` or `super_classes`
 df = pd.read_csv('region_GTcodes.csv', delimiter=',')
