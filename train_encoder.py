@@ -44,7 +44,7 @@ IMAGE_SHAPE = [224, 224, 3]
 FILTER_SIZE = 23
 
 PROJECTOR_DIMENSIONALITY = 1024
-LEARNING_RATE_BASE = 1e-6
+LEARNING_RATE_BASE = 5e-4
 
 PREPROCESSING_CONFIG = {
     'vertical_flip_probability': 0.5,
@@ -140,6 +140,7 @@ ds_a = ds_a.map(
 )
 ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
+"""CHANGE THIS LATER"""
 ds_b = create_encoder_dataset(datagen_b)
 ds_b = ds_b.map(
     lambda x: image_augmentation.augment(x, 1, FILTER_SIZE, config=PREPROCESSING_CONFIG),
@@ -210,15 +211,15 @@ with strategy.scope():
         warmup_learning_rate=0.0,
         warmup_steps=WARMUP_STEPS
     )
-    optimizer = tf.keras.optimizers.Adam(0)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr_decay_fn)
 
-    from utils.train.callbacks import LRFinder
-    lr_finder = LRFinder(
-        min_lr=1e-9,
-        max_lr=1e-1,
-        steps_per_epoch=STEPS_PER_EPOCH,
-        epochs=EPOCHS
-    )
+    # from utils.train.callbacks import LRFinder
+    # lr_finder = LRFinder(
+    #     min_lr=1e-9,
+    #     max_lr=1e-1,
+    #     steps_per_epoch=STEPS_PER_EPOCH,
+    #     epochs=EPOCHS
+    # )
 
     # Get model
     barlow_twins = BarlowTwins(
@@ -247,7 +248,7 @@ history = barlow_twins.fit(
     dataset,
     epochs=EPOCHS,
     steps_per_epoch=STEPS_PER_EPOCH,
-    callbacks=[es, mc, lr_finder]
+    callbacks=[es, mc]
 )
 
 with open(os.path.join(SAVE_DIR, 'history.pickle'), 'wb') as file:

@@ -80,7 +80,7 @@ class LRFinder(Callback):
     def plot_lr(self):
         """Helper function to quickly inspect the learning rate schedule."""
         plt.plot(self.history['iterations'], self.history['lr'])
-        plt.yscale('log')
+        # plt.yscale('log')
         plt.xlabel('Iteration')
         plt.ylabel('Learning rate')
 
@@ -90,7 +90,7 @@ class LRFinder(Callback):
     def plot_loss(self):
         """Helper function to quickly observe the learning rate experiment results."""
         plt.plot(self.history['lr'], self.history['loss'])
-        plt.xscale('log')
+        # plt.xscale('log')
         plt.xlabel('Learning rate')
         plt.ylabel('Loss')
 
