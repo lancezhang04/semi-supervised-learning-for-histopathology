@@ -55,41 +55,42 @@ def get_preprocessing_function(config, view):
     return aug
 
 
-def augment(x: tf.Tensor, view, filter_size, config) -> tf.Tensor:
+def augment(imgs: tf.Tensor, view, config) -> tf.Tensor:
     # Input must be clipped into the range of [0, 1]
 
-    # Random 90-degree rotations
-    # x = tf.image.rot90(x, tf.random.uniform(shape=[], minval=0, maxval=4, dtype=tf.int32))
+    # Random horizontal and vertical flips (applied randomly for each image)
+    if config['horizontal_flip']:
+        imgs = tf.image.random_flip_left_right(imgs)
+    if config['vertical_flip']:
+        imgs = tf.image.random_flip_up_down(imgs)
 
-    # Random horizontal and vertical flips
-    x = tf.image.random_flip_up_down(x)
-    x = tf.image.random_flip_left_right(x)
+    imgs_aug = tf.TensorArray(tf.float32, size=0, dynamic_size=True)
+    for i in range(len(imgs)):
+        x = imgs[i]
 
-    if tf.random.uniform(shape=[]) < config['color_jittering']:
-        funcs = [
-            lambda: tf.image.random_hue(x, config['hue_adjustment_max_intensity']),
-            lambda: tf.image.random_saturation(x, 1 - config['hue_adjustment_max_intensity'],
-                                               1 + config['hue_adjustment_max_intensity']),
-            lambda: tf.image.random_brightness(x, config['brightness_adjustment_max_intensity']),
-            lambda: tf.image.random_contrast(x, 1 - config['contrast_adjustment_max_intensity'],
-                                             1 + config['contrast_adjustment_max_intensity'])
-        ]
+        if tf.random.uniform(shape=[]) < config['color_jittering']:
+            funcs = [
+                lambda: tf.image.random_hue(x, config['hue_adjustment_max_intensity']),
+                lambda: tf.image.random_saturation(x, 1 - config['hue_adjustment_max_intensity'],
+                                                   1 + config['hue_adjustment_max_intensity']),
+                lambda: tf.image.random_brightness(x, config['brightness_adjustment_max_intensity']),
+                lambda: tf.image.random_contrast(x, 1 - config['contrast_adjustment_max_intensity'],
+                                                 1 + config['contrast_adjustment_max_intensity'])
+            ]
 
-        seq = tf.random.shuffle([i for i in range(len(funcs))])
-        for i in seq:
-            # Really weird implementation: cannot index with `i` directly since it is a Tensor
-            for j in range(len(funcs)):
-                if i == j:
-                    x = funcs[j]()
+            seq = tf.random.shuffle([i for i in range(len(funcs))])
+            for i in seq:
+                # Really weird implementation: cannot index with `i` directly since it is a Tensor
+                for j in range(len(funcs)):
+                    if i == j:
+                        x = funcs[j]()
 
-    # Gaussian blur currently implemented through keras layer
-    # if tf.random.uniform(shape=[]) < config['gaussian_blurring_probability'][view]:
-    #     x = tfa.image.gaussian_filter2d(x, filter_shape=filter_size, sigma=1)
+        if tf.random.uniform(shape=[]) < config['solarization_probability'][view]:
+            x = tf.where(x < 0.5, x, 1 - x)
 
-    if tf.random.uniform(shape=[]) < config['solarization_probability'][view]:
-        x = tf.where(x < 0.5, x, 1 - x)
+        imgs_aug = imgs_aug.write(imgs_aug.size(), x)
 
-    return x
+    return imgs_aug.stack()
 
 
 def get_gaussian_filter(shape=(3, 3), sigma=0.5):

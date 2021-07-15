@@ -36,6 +36,9 @@ class BarlowTwins(tf.keras.Model):
 
         return imgs
 
+    def call(self, data, **kwargs):
+        return self.encoder(data[0], training=True), self.encoder(data[1], training=True)
+
     def train_step(self, data):
         # Unpack the data
         imgs_a, imgs_b = data

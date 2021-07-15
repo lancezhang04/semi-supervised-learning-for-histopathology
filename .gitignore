@@ -24,7 +24,7 @@ venv
 __pycache__
 utils/__pycache__
 .ipynb_checkpoints
-*.ipynb-
+*.ipynb
 .idea
 *.bat
 !git_update.bat
