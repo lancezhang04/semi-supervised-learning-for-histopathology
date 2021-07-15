@@ -6,7 +6,7 @@ import os
 
 
 SOURCE_DIR = 'NuCLS/rgb'
-TARGET_DIR = 'NuCLS_histogram_matching/rgb'
+TARGET_DIR = 'NuCLS_histogram_matched/rgb'
 REFERENCE_IMAGE_PATH = 'NuCLS/rgb/TCGA-A2-A3XS-DX1_id-5ea4096dddda5f839897afad_left-26262_top-39256_bottom-39559_right-26541.png'
 
 SHOW_VISUALIZATION = True
