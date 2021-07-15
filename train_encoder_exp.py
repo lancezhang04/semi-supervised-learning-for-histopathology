@@ -59,9 +59,6 @@ def train():
     # Shuffle the dataset
     df = df.sample(frac=1).reset_index(drop=True)
 
-    """CHANGE LATER"""
-    df = df[:200]
-
     datagen_a = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
         df[df['split'] == 'train'],
         shuffle=False,
