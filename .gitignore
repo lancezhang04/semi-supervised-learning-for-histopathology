@@ -9,6 +9,7 @@ cifar-10-python
 tissue_classification/*
 !tissue_classification/generate_patches.py
 !tissue_classification/fold_test.csv
+!tissue_classification/region_GTcodes.csv
 
 # trained_models
 trained_models/*
