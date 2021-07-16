@@ -56,43 +56,50 @@ def configure_saving(suffix=None, model_name=None):
 
 
 def load_dataset():
-    # Only using training set (and no validation set)
     df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED, mode='encoder')
     # Shuffle the dataset
     df = df.sample(frac=1).reset_index(drop=True)
+    df = df.sort_values('filename')
+    labels = df['class']
+    classes, labels = np.unique(labels, return_inverse=True)
 
-    datagen_a = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
-        df[df['split'] == 'train'],
-        shuffle=False,
-        seed=RANDOM_SEED,
-        target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
+    ds_a = tf.keras.preprocessing.image_dataset_from_directory(
+        DATASET_CONFIG['dataset_dir'],
+        labels=list(labels),
+        label_mode='categorical',
+        batch_size=1,
+        image_size=IMAGE_SHAPE[:2],
+        shuffle=True,
+        seed=RANDOM_SEED
     )
-
-    datagen_b = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
-        df[df['split'] == 'train'],
-        shuffle=False,
-        seed=RANDOM_SEED,
-        target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
-    )
-
-    ds_a = tf.data.Dataset.from_generator(lambda: [datagen_a.next()[0]], output_types='float32',
-                                          output_shapes=[None] * 4)
+    ds_a = ds_a.map(lambda x, y: x / 255, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     ds_a = ds_a.map(
         lambda x: image_augmentation.augment(x, 0, config=PREPROCESSING_CONFIG),
         num_parallel_calls=tf.data.experimental.AUTOTUNE
     )
     ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_a = ds_a.map(lambda x: tf.squeeze(x), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_a = ds_a.batch(BATCH_SIZE)
 
-    ds_b = tf.data.Dataset.from_generator(lambda: [datagen_b.next()[0]], output_types='float32',
-                                          output_shapes=[None] * 4)
+    ds_b = tf.keras.preprocessing.image_dataset_from_directory(
+        DATASET_CONFIG['dataset_dir'],
+        labels=list(labels),
+        label_mode='categorical',
+        batch_size=1,
+        image_size=IMAGE_SHAPE[:2],
+        shuffle=True,
+        seed=RANDOM_SEED
+    )
+    ds_b = ds_b.map(lambda x, y: x / 255, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     ds_b = ds_b.map(
         lambda x: image_augmentation.augment(x, 1, config=PREPROCESSING_CONFIG),
         num_parallel_calls=tf.data.experimental.AUTOTUNE
     )
     ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_b = ds_b.map(lambda x: tf.squeeze(x), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_b = ds_b.batch(BATCH_SIZE)
 
     dataset = tf.data.Dataset.zip((ds_a, ds_b))
-    # dataset = dataset.batch(BATCH_SIZE)
     dataset = dataset.prefetch(PREFETCH)
 
     # This creates a generator from the dataset
@@ -100,7 +107,7 @@ def load_dataset():
         while True:
             yield next(iter(dataset))
 
-    steps_per_epoch = len(datagen_a)
+    steps_per_epoch = len(ds_a)
     print('Steps per epoch:', steps_per_epoch)
 
     return data_generator(), steps_per_epoch
