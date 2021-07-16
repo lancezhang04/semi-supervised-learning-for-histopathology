@@ -161,11 +161,11 @@ def main(suffix=None, model_name=None):
 
 
 if __name__ == '__main__':
-    DATASET_CONFIG['train_split'] = 0.1
+    DATASET_CONFIG['train_split'] = 0.85
 
     # MODEL_TYPE = 'supervised'
     # main(model_name='supervised_baseline_0.1')
     
-    MODEL_TYPE = 'barlow_fine_tuned'
-    PRETRAINED_DIR = 'trained_models/encoders/0714/encoder_tissue_224_1024_256_30_0.0001_no_aug'
-    main(model_name='barlow_no_aug_0.1')
+    MODEL_TYPE = 'supervised'
+    # PRETRAINED_DIR = 'trained_models/encoders/0714/encoder_tissue_224_1024_256_30_0.0001_flip_only'
+    main(model_name='supervised_0.85')
