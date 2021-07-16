@@ -12,6 +12,7 @@ from utils.datasets import get_generators, create_classifier_dataset
 from utils.train import lr_scheduler
 from utils.models import resnet
 
+
 import numpy as np
 import pickle
 import json
@@ -160,9 +161,11 @@ def main(suffix=None, model_name=None):
 
 
 if __name__ == '__main__':
-    MODEL_TYPE = 'supervised'
-    main(model_name='supervised_baseline')
+    DATASET_CONFIG['train_split'] = 0.1
+
+    # MODEL_TYPE = 'supervised'
+    # main(model_name='supervised_baseline_0.1')
     
     MODEL_TYPE = 'barlow_fine_tuned'
-    PRETRAINED_DIR = 'trained_models/encoders/0714/encoder_tissue_224_1024_256_30_0.0001_baseline'
-    main(model_name='barlow_baseline')
+    PRETRAINED_DIR = 'trained_models/encoders/0714/encoder_tissue_224_1024_256_30_0.0001_no_aug'
+    main(model_name='barlow_no_aug_0.1')

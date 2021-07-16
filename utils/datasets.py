@@ -51,26 +51,30 @@ def get_dataset_df(config, random_seed, mode='classifier'):
             df.loc[df['class'] == k, 'class'] = v
 
         # Generate minor/major classes
-        df['evaluation'] = 'minor'
+        df.loc[:, 'evaluation'] = 'minor'
         df.loc[df['class'].isin(config['major_groups']), 'evaluation'] = 'major'
 
         # Stratify train/val split by class count
         class_counts = dict(df['class'].value_counts())
         train_split = config['train_split']
         validation_split = config['validation_split']
-
+        
+        # Index changes when some classes are removed from training
+        df = df.reset_index(drop=True)
         for class_ in class_counts.keys():
             idxs = np.where((df['class'] == class_) & (df['split'] == 'left_out'))[0]
+            
             num_total = int(round(len(idxs)) * (train_split + validation_split))
             num_val = int(round(len(idxs) * validation_split))
-
+  
             idxs = np.random.choice(idxs, num_total, replace=False)
 
             # Ensures that the validation set is the same every time
             df.loc[idxs[:num_val], 'split'] = 'val'
             df.loc[idxs[num_val:], 'split'] = 'train'
+            
     elif mode == 'encoder':
-        # During encoder training, all available data is used (with no validation set)
+        # During encoder training, all available data outside the test set is used (with no validation set)
         df.loc[df['split'] == 'left_out', 'split'] = 'train'
     else:
         raise ValueError

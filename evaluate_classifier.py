@@ -18,6 +18,7 @@ parser = OptionParser()
 parser.add_option('-d', '--dir', dest='dir', default='trained_models/classifiers/0707/supervised_0.5')
 parser.add_option('-v', '--no-visualization', dest='show_training_visualization', default=True, action='store_false')
 parser.add_option('-s', '--no-stats', dest='calculate_stats', default=True, action='store_false')
+parser.add_option('--not-trainable', dest='trainable', default=True, action='store_false')
 (options, args) = parser.parse_args()
 
 
@@ -28,7 +29,7 @@ parser.add_option('-s', '--no-stats', dest='calculate_stats', default=True, acti
 
 DIR = options.dir
 NAME = DIR.split('/')[-1]
-TRAINABLE = False if ('barlow' in NAME and 'fine_tune' not in NAME) else True
+TRAINABLE = options.trainable
 OVERRIDE_DATASET_DIR = None  # 'datasets/NuCLS_histogram_matching/NuCLS_histogram_matching_64'
 
 SHOW_TRAINING_VISUALIZATION = options.show_training_visualization
@@ -137,6 +138,7 @@ if CALCULATE_STATS:
     heatmap(conf_matrix, annot=True)
     plt.ylabel('True Classes')
     plt.xlabel('Predicted Classes')
+    plt.savefig('confusion_matrix.png')
     plt.show()
 
     # Calculate AUROC
