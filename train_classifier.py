@@ -161,11 +161,10 @@ def main(suffix=None, model_name=None):
 
 
 if __name__ == '__main__':
-    DATASET_CONFIG['train_split'] = 0.85
-
-    # MODEL_TYPE = 'supervised'
-    # main(model_name='supervised_baseline_0.1')
+    MODEL_TYPE = 'barlow_fine_tuned'
+    PRETRAINED_DIR = f'trained_models/encoders/dim/encoder_2048'
+    PROJECTOR_DIMENSIONALITY = 2048
     
-    MODEL_TYPE = 'supervised'
-    # PRETRAINED_DIR = 'trained_models/encoders/0714/encoder_tissue_224_1024_256_30_0.0001_flip_only'
-    main(model_name='supervised_0.85')
+    for s in [0.01, 0.05, 0.1, 0.2, 0.5, 0.85]:
+        DATASET_CONFIG['train_split'] = s
+        main(model_name= f'barlow_{s}')

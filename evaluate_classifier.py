@@ -19,6 +19,7 @@ parser.add_option('-d', '--dir', dest='dir', default='trained_models/classifiers
 parser.add_option('-v', '--no-visualization', dest='show_training_visualization', default=True, action='store_false')
 parser.add_option('-s', '--no-stats', dest='calculate_stats', default=True, action='store_false')
 parser.add_option('--not-trainable', dest='trainable', default=True, action='store_false')
+parser.add_option('-p', dest='projector_dim', default=1024)
 (options, args) = parser.parse_args()
 
 
@@ -36,7 +37,7 @@ SHOW_TRAINING_VISUALIZATION = options.show_training_visualization
 CALCULATE_STATS = options.calculate_stats
 
 IMAGE_SHAPE = [224, 224, 3]
-PROJECTOR_DIMENSIONALITY = 1024
+PROJECTOR_DIMENSIONALITY = options.projector_dim
 RANDOM_SEED = 42
 BATCH_SIZE = 128
 
