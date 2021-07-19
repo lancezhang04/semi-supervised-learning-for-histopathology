@@ -61,6 +61,8 @@ def load_dataset():
     # Shuffle the dataset
     df = df.sample(frac=1).reset_index(drop=True)
 
+    print('Dataset length:', len(df))
+
     datagen_a = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
         df[df['split'] == 'train'],
         shuffle=False,
@@ -199,13 +201,27 @@ def main(suffix=None, model_name=None):
 
 if __name__ == '__main__':
     # Overwrite default values
-    BATCH_SIZE = 32
-    IMAGE_SHAPE = [32, 32, 3]
-    PROJECTOR_DIMENSIONALITY = 512
-    EPOCHS = 1
-    ROOT_SAVE_DIR = 'trained_models/encoders/0715'
+    BATCH_SIZE = 256
+    IMAGE_SHAPE = [224, 224, 3]
+    EPOCHS = 30
+    ROOT_SAVE_DIR = 'trained_models/encoders/dim_test'
+    
+    print(PREPROCESSING_CONFIG)
+    
+    PROJECTOR_DIMENSIONALITY = 1024
+    main(model_name='encoder_1024')
 
-    main(model_name='test')
+#     PROJECTOR_DIMENSIONALITY = 512
+#     main(model_name='encoder_512')
+
+#     PROJECTOR_DIMENSIONALITY = 2048
+#     main(model_name='encoder_2048')
+
+#     PROJECTOR_DIMENSIONALITY = 4096
+#     main(model_name='encoder_4096')
+
+#     PROJECTOR_DIMENSIONALITY = 8192
+#     main(model_name='encoder_8192')
 
     # PREPROCESSING_CONFIG['color_jittering'] = 0
     # main('no_color')

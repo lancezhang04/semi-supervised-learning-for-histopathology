@@ -10,11 +10,12 @@ import os
 
 MASKS_DIR = 'tissue_classification/masks'
 RGB_DIR = 'tissue_classification/rgbs_colorNormalized'
-TARGET_DIR = 'tissue_classification/dataset'
+TARGET_DIR = 'tissue_classification/dataset_full'
 
 PATCH_SIZE = 224
 STEP_SIZE = int(0.5 * PATCH_SIZE)
 THRESHOLD = 0.5
+INCLUDE_EXCLUDE = True
 
 CLASSES_MODE = ['main', 'super'][1]  # use `main_classes` or `super_classes`
 df = pd.read_csv('tissue_classification/region_GTcodes.csv', delimiter=',')
@@ -58,7 +59,7 @@ def generate_patches(img, mask, img_name, verbose=0):
             if max(ratios) >= THRESHOLD:
                 tissue_type = unique[np.argmax(ratios)]
                 tissue_type = classes_map[tissue_type]
-                if tissue_type.lower() == 'exclude':
+                if not INCLUDE_EXCLUDE and tissue_type.lower() == 'exclude':
                     continue
             else:
                 continue

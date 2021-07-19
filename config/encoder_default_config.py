@@ -28,7 +28,7 @@ ROOT_SAVE_DIR = 'trained_models/encoders'
 
 DATASET_CONFIG = {
     'split_file_path': 'tissue_classification/fold_test.csv',
-    'dataset_dir': 'tissue_classification/tissue_classification'
+    'dataset_dir': 'tissue_classification/dataset'
 }
 
 RANDOM_SEED = 42
