@@ -8,31 +8,6 @@ import pandas as pd
 import os
 
 
-MASKS_DIR = 'tissue_classification/masks'
-RGB_DIR = 'tissue_classification/rgbs_colorNormalized'
-TARGET_DIR = 'tissue_classification/dataset_full'
-
-PATCH_SIZE = 224
-STEP_SIZE = int(0.5 * PATCH_SIZE)
-THRESHOLD = 0.5
-INCLUDE_EXCLUDE = True
-
-CLASSES_MODE = ['main', 'super'][1]  # use `main_classes` or `super_classes`
-df = pd.read_csv('tissue_classification/region_GTcodes.csv', delimiter=',')
-
-# Maps class code ==> class name
-classes_map = dict(zip(df[CLASSES_MODE + '_codes'], df[CLASSES_MODE + '_classes']))
-# Maps ground truth codes (every group) ==> class codes (every class)
-gt_codes_map = dict(zip(df['GT_code'], df[CLASSES_MODE + '_codes']))
-
-# For later usage on mask
-k, v = np.array(list(gt_codes_map.keys())), np.array(list(gt_codes_map.values()))
-sort_idx = k.argsort()
-k_sorted, v_sorted = k[sort_idx], v[sort_idx]
-
-os.makedirs(TARGET_DIR, exist_ok=True)
-
-
 def generate_patches(img, mask, img_name, verbose=0):
     horizontal_steps = int((img.shape[1] - PATCH_SIZE) / STEP_SIZE)
     vertical_steps = int((img.shape[0] - PATCH_SIZE) / STEP_SIZE)
@@ -50,9 +25,13 @@ def generate_patches(img, mask, img_name, verbose=0):
             x_max, y_max = int(x_min + PATCH_SIZE), int(y_min + PATCH_SIZE)
 
             patch = img[y_min: y_max, x_min: x_max, :]
-            patch_mask = mask[y_min: y_max, x_min: x_max, 0]
             assert patch.shape == (PATCH_SIZE, PATCH_SIZE, 3)
 
+            # Save patch for encoder, all image files are saved in the 'all' folder
+            cv2.imwrite(os.path.join(ENCODER_TARGET_DIR, 'all', f'{img_name}_{x_step}_{y_step}.png'), patch)
+
+            # Determine patch class
+            patch_mask = mask[y_min: y_max, x_min: x_max, 0]
             unique, counts = np.unique(patch_mask, return_counts=True)
             ratios = counts / (PATCH_SIZE ** 2)
 
@@ -66,7 +45,6 @@ def generate_patches(img, mask, img_name, verbose=0):
 
             patch_save_dir = os.path.join(TARGET_DIR, tissue_type)
             os.makedirs(patch_save_dir, exist_ok=True)
-
             cv2.imwrite(os.path.join(patch_save_dir, f'{img_name}_{patches_generated}_{round(max(ratios), 3)}.png'),
                         patch)
 
@@ -84,7 +62,7 @@ def generate_patches(img, mask, img_name, verbose=0):
     return patches_generated, tissue_type_counts
 
 
-if __name__ == '__main__':
+def main():
     total_patches_generated = 0
     total_tissue_type_counts = defaultdict(lambda: 0)
 
@@ -94,8 +72,8 @@ if __name__ == '__main__':
         mask = cv2.imread(os.path.join(MASKS_DIR, mask_name))
 
         # Detect whitespace and apply (grouped) label
-        mask = detect_whitespace(image, mask)
-        mask = v_sorted[np.searchsorted(k_sorted, mask)]
+        mask = v_sorted[np.searchsorted(k_sorted, mask)]  # this needs to happen FIRST!
+        mask = detect_whitespace(image, mask)  # applies *SUPER CLASS* code (8) for white
 
         patches_generated, tissue_type_counts = generate_patches(
             image, mask,
@@ -110,3 +88,34 @@ if __name__ == '__main__':
     total_tissue_type_counts = dict(total_tissue_type_counts)
     print('total patches generated:', total_patches_generated)
     print(total_tissue_type_counts)
+
+
+if __name__ == '__main__':
+    MASKS_DIR = 'tissue_classification/masks'
+    RGB_DIR = 'tissue_classification/rgbs_colorNormalized'
+
+    TARGET_DIR = 'tissue_classification/dataset'
+    ENCODER_TARGET_DIR = 'tissue_classification/dataset_encoder'
+    PATCH_SIZE = 224
+    STEP_SIZE = int(0.5 * PATCH_SIZE)
+    THRESHOLD = 0.5
+    INCLUDE_EXCLUDE = True
+
+    # Change code in detect_white_space() when using main classes
+    CLASSES_MODE = ['main', 'super'][1]  # use `main_classes` or `super_classes`
+    df = pd.read_csv('tissue_classification/region_GTcodes.csv', delimiter=',')
+
+    # Maps class code ==> class name
+    classes_map = dict(zip(df[CLASSES_MODE + '_codes'], df[CLASSES_MODE + '_classes']))
+    # Maps ground truth codes (every group) ==> class codes (every class)
+    gt_codes_map = dict(zip(df['GT_code'], df[CLASSES_MODE + '_codes']))
+
+    # For later usage on mask
+    k, v = np.array(list(gt_codes_map.keys())), np.array(list(gt_codes_map.values()))
+    sort_idx = k.argsort()
+    k_sorted, v_sorted = k[sort_idx], v[sort_idx]
+
+    os.makedirs(TARGET_DIR, exist_ok=True)
+    os.makedirs(os.path.join(ENCODER_TARGET_DIR, 'all'), exist_ok=True)
+
+    main()
