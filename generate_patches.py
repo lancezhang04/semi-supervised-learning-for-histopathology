@@ -63,7 +63,7 @@ def generate_patches(img, mask, img_name, classes_map, verbose=0):
 
 
 def main():
-    df = pd.read_csv('tissue_classification/region_GTcodes.csv', delimiter=',')
+    df = pd.read_csv('datasets/tissue_classification/region_GTcodes.csv', delimiter=',')
 
     # Maps class code ==> class name
     classes_map = dict(zip(df[CLASSES_MODE + '_codes'], df[CLASSES_MODE + '_classes']))
@@ -109,17 +109,17 @@ def main():
 
 
 if __name__ == '__main__':
-    MASKS_DIR = 'tissue_classification/masks'
-    RGB_DIR = 'tissue_classification/rgbs_colorNormalized'
+    MASKS_DIR = 'datasets/tissue_classification/masks'
+    RGB_DIR = 'datasets/tissue_classification/rgbs_colorNormalized'
 
-    TARGET_DIR = 'tissue_classification/dataset_main_classes'
+    TARGET_DIR = 'datasets/tissue_classification/dataset_main_classes'
     PATCH_SIZE = 224
     STEP_SIZE = int(0.5 * PATCH_SIZE)
     THRESHOLD = 0.5
     INCLUDE_EXCLUDE = True
 
     GENERATE_ENCODER_DATASET = False
-    ENCODER_TARGET_DIR = 'tissue_classification/dataset_encoder'
+    ENCODER_TARGET_DIR = 'datasets/tissue_classification/dataset_encoder'
 
     # Change code in detect_white_space() when using main classes
     CLASSES_MODE = ['main', 'super'][0]  # use `main_classes` or `super_classes`

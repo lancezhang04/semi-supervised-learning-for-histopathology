@@ -3,13 +3,12 @@ prev
 
 # Datasetes
 datasets/*
-!prev/create_dataset.py
-!prev/match_histograms.py
-cifar-10-python
-tissue_classification/*
-!tissue_classification/generate_patches.py
-!tissue_classification/fold_test.csv
-!tissue_classification/region_GTcodes.csv
+datasets/cifar-10-python
+!datasets/NuCLS/generate_dataset.py
+!datasets/NuCLS/match_histograms.py
+!datasets/tissue_classification/generate_patches.py
+!datasets/tissue_classification/fold_test.csv
+!datasets/tissue_classification/region_GTcodes.csv
 
 # trained_models
 trained_models/*
@@ -33,3 +32,5 @@ meta.txt
 notebooks
 logs
 *.png
+*.txt
+!requirements.txt
