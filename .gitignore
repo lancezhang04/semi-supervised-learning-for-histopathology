@@ -3,10 +3,12 @@ prev
 
 # Datasetes
 datasets/cifar-10-python
-datasets/NuCLS
+
+datasets/NuCLS/*
 !datasets/NuCLS/generate_dataset.py
 !datasets/NuCLS/match_histograms.py
-datasets/tissue_classification
+
+datasets/tissue_classification/*
 !datasets/tissue_classification/generate_patches.py
 !datasets/tissue_classification/fold_test.csv
 !datasets/tissue_classification/region_GTcodes.csv
