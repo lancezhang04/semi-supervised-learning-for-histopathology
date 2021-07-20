@@ -7,11 +7,8 @@ from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = None
 
-# WHITESPACE_CODE = 11  # main cateags
-WHITESPACE_CODE = 8  # super cateags
 
-
-def detect_whitespace(rgb, region_mask):
+def detect_whitespace(rgb, region_mask, whitespace_code):
     """
     Refine manual mask by detecting whitespace using color thresholds.
     Adapted from histomicstk / saliency / cellularity_detection_thresholding.
@@ -27,7 +24,7 @@ def detect_whitespace(rgb, region_mask):
         just_threshold=False,
     )
 
-    region_mask[lab > 0] = WHITESPACE_CODE
+    region_mask[lab > 0] = whitespace_code
 
     return region_mask
 

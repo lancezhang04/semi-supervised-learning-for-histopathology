@@ -1,14 +1,13 @@
-from collections import defaultdict
-from generate_splits import generate_splits
 from utils.detect_whitespace import detect_whitespace
-import cv2
+from collections import defaultdict
 from tqdm import tqdm
-import numpy as np
 import pandas as pd
+import numpy as np
+import cv2
 import os
 
 
-def generate_patches(img, mask, img_name, verbose=0):
+def generate_patches(img, mask, img_name, classes_map, verbose=0):
     horizontal_steps = int((img.shape[1] - PATCH_SIZE) / STEP_SIZE)
     vertical_steps = int((img.shape[0] - PATCH_SIZE) / STEP_SIZE)
 
@@ -27,8 +26,9 @@ def generate_patches(img, mask, img_name, verbose=0):
             patch = img[y_min: y_max, x_min: x_max, :]
             assert patch.shape == (PATCH_SIZE, PATCH_SIZE, 3)
 
-            # Save patch for encoder, all image files are saved in the 'all' folder
-            cv2.imwrite(os.path.join(ENCODER_TARGET_DIR, 'all', f'{img_name}_{x_step}_{y_step}.png'), patch)
+            if GENERATE_ENCODER_DATASET:
+                # Save patch for encoder, all image files are saved in the 'all' folder
+                cv2.imwrite(os.path.join(ENCODER_TARGET_DIR, 'all', f'{img_name}_{x_step}_{y_step}.png'), patch)
 
             # Determine patch class
             patch_mask = mask[y_min: y_max, x_min: x_max, 0]
@@ -63,6 +63,23 @@ def generate_patches(img, mask, img_name, verbose=0):
 
 
 def main():
+    df = pd.read_csv('tissue_classification/region_GTcodes.csv', delimiter=',')
+
+    # Maps class code ==> class name
+    classes_map = dict(zip(df[CLASSES_MODE + '_codes'], df[CLASSES_MODE + '_classes']))
+    # Maps ground truth codes (every class) ==> class codes (every main/super class)
+    gt_codes_map = dict(zip(df['GT_code'], df[CLASSES_MODE + '_codes']))
+
+    # For later usage on mask
+    k, v = np.array(list(gt_codes_map.keys())), np.array(list(gt_codes_map.values()))
+    sort_idx = k.argsort()
+    k_sorted, v_sorted = k[sort_idx], v[sort_idx]
+
+    # Create dataset directory
+    os.makedirs(TARGET_DIR, exist_ok=True)
+    if GENERATE_ENCODER_DATASET:
+        os.makedirs(os.path.join(ENCODER_TARGET_DIR, 'all'), exist_ok=True)
+
     total_patches_generated = 0
     total_tissue_type_counts = defaultdict(lambda: 0)
 
@@ -73,11 +90,12 @@ def main():
 
         # Detect whitespace and apply (grouped) label
         mask = v_sorted[np.searchsorted(k_sorted, mask)]  # this needs to happen FIRST!
-        mask = detect_whitespace(image, mask)  # applies *SUPER CLASS* code (8) for white
+        mask = detect_whitespace(image, mask, WHITESPACE_CODE)
 
         patches_generated, tissue_type_counts = generate_patches(
             image, mask,
             image_name.split('.')[0],
+            classes_map,
             verbose=0
         )
 
@@ -94,28 +112,17 @@ if __name__ == '__main__':
     MASKS_DIR = 'tissue_classification/masks'
     RGB_DIR = 'tissue_classification/rgbs_colorNormalized'
 
-    TARGET_DIR = 'tissue_classification/dataset'
-    ENCODER_TARGET_DIR = 'tissue_classification/dataset_encoder'
+    TARGET_DIR = 'tissue_classification/dataset_main_classes'
     PATCH_SIZE = 224
     STEP_SIZE = int(0.5 * PATCH_SIZE)
     THRESHOLD = 0.5
     INCLUDE_EXCLUDE = True
 
+    GENERATE_ENCODER_DATASET = False
+    ENCODER_TARGET_DIR = 'tissue_classification/dataset_encoder'
+
     # Change code in detect_white_space() when using main classes
-    CLASSES_MODE = ['main', 'super'][1]  # use `main_classes` or `super_classes`
-    df = pd.read_csv('tissue_classification/region_GTcodes.csv', delimiter=',')
-
-    # Maps class code ==> class name
-    classes_map = dict(zip(df[CLASSES_MODE + '_codes'], df[CLASSES_MODE + '_classes']))
-    # Maps ground truth codes (every group) ==> class codes (every class)
-    gt_codes_map = dict(zip(df['GT_code'], df[CLASSES_MODE + '_codes']))
-
-    # For later usage on mask
-    k, v = np.array(list(gt_codes_map.keys())), np.array(list(gt_codes_map.values()))
-    sort_idx = k.argsort()
-    k_sorted, v_sorted = k[sort_idx], v[sort_idx]
-
-    os.makedirs(TARGET_DIR, exist_ok=True)
-    os.makedirs(os.path.join(ENCODER_TARGET_DIR, 'all'), exist_ok=True)
+    CLASSES_MODE = ['main', 'super'][0]  # use `main_classes` or `super_classes`
+    WHITESPACE_CODE = 8 if CLASSES_MODE == 'super' else 11
 
     main()
