@@ -14,6 +14,12 @@ datasets/tissue_classification/*
 !datasets/tissue_classification/fold_test.csv
 !datasets/tissue_classification/region_GTcodes.csv
 
+tissue_classification/*
+!tissue_classification/generate_patches.py
+!tissue_classification/generate_splits.py
+!tissue_classification/fold_test.csv
+!tissue_classification/region_GTcodes.csv
+
 # trained_models
 trained_models/*
 dimensionality_reduction/cache/*
