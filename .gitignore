@@ -10,6 +10,7 @@ datasets/NuCLS/*
 
 datasets/tissue_classification/*
 !datasets/tissue_classification/generate_patches.py
+!datasets/tissue_classification/generate_splits.py
 !datasets/tissue_classification/fold_test.csv
 !datasets/tissue_classification/region_GTcodes.csv
 

@@ -49,7 +49,8 @@ DATASET_CONFIG = {
         'TUMOR': 'tumor',
         'STROMA': 'stroma',
         'TILS': 'tils',
-        'JUNK': 'junk'
+        'JUNK': 'junk',
+        'WHITE': 'white'
     },
     'major_groups': ['tumor', 'stroma']
 }
