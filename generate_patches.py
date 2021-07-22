@@ -3,6 +3,7 @@ from collections import defaultdict
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
+import json
 import cv2
 import os
 
@@ -101,6 +102,9 @@ def main():
 
     total_tissue_type_counts = dict(total_tissue_type_counts)
     print('total patches generated:', total_patches_generated)
+
+    with open(os.path.join(TARGET_DIR, 'meta.json'), 'w') as file:
+        json.dump(total_tissue_type_counts, file)
     print(total_tissue_type_counts)
 
 
@@ -110,10 +114,10 @@ if __name__ == '__main__':
 
     PATCH_SIZE = 224
     STEP_SIZE = int(0.5 * PATCH_SIZE)
-    THRESHOLD = 0.5
-    INCLUDE_EXCLUDE = True
+    THRESHOLD = 0.35
+    INCLUDE_EXCLUDE = False
 
-    TARGET_DIR = 'datasets/tissue_classification/dataset_test'
+    TARGET_DIR = 'datasets/tissue_classification/dataset_main_classes_0.35'
     GENERATE_ENCODER_DATASET = False
     ENCODER_TARGET_DIR = 'datasets/tissue_classification/dataset_encoder'
 

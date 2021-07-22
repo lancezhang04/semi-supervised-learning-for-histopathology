@@ -13,7 +13,7 @@ from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df
 from utils import image_augmentation
 from utils.train import lr_scheduler
-from utils.models import resnet
+from utils.models import resnet_cifar
 
 import numpy as np
 import pickle
@@ -121,7 +121,7 @@ def load_model(steps_per_epoch):
         # ResNet164  | 18  |
         # ResNet1001 | 111 |
 
-        resnet_enc = resnet.get_network(
+        resnet_enc = resnet_cifar.get_network(
             n=2,
             hidden_dim=PROJECTOR_DIMENSIONALITY,
             use_pred=False,

@@ -1,14 +1,14 @@
 from silence_tensorflow import silence_tensorflow
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
-from utils.models import resnet
+from utils.models import resnet_cifar
 
 silence_tensorflow()
 
 
 IMAGE_SHAPE = (64, 64, 3)
 
-resnet_enc = resnet.get_network(
+resnet_enc = resnet_cifar.get_network(
     hidden_dim=1024,
     use_pred=False,
     return_before_head=False,

@@ -19,6 +19,9 @@ def get_dataset_df(config, random_seed, mode='classifier'):
 
     for root, dirs, files in os.walk(config['dataset_dir']):
         for name in files:
+            if name.split('.')[-1] != 'png':
+                continue
+
             path = os.path.join(root, name)
             dir_, file = os.path.split(path)
 
@@ -31,8 +34,6 @@ def get_dataset_df(config, random_seed, mode='classifier'):
             df['patient'].append(slide_name.split('-')[2])
 
     df = pd.DataFrame(df)
-    if len(df) == 0:
-        raise ValueError
 
     # Generate splits in the dataset
     df['split'] = 'left_out'
@@ -49,6 +50,9 @@ def get_dataset_df(config, random_seed, mode='classifier'):
         df = df[df['class'].isin(config['groups'].keys())]
         for k, v in config['groups'].items():
             df.loc[df['class'] == k, 'class'] = v
+
+        if len(df) == 0:
+            raise ValueError
 
         # Generate minor/major classes
         df.loc[:, 'evaluation'] = 'minor'

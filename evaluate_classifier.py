@@ -66,7 +66,7 @@ if CALCULATE_STATS:
     from tensorflow.keras.layers import Input, Dense
     from tensorflow.keras.models import Model
     from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
-    from utils.models import resnet
+    from utils.models import resnet_cifar
     import tensorflow as tf
 
     # Load data
@@ -85,7 +85,7 @@ if CALCULATE_STATS:
     CLASSES = list(datagen_test.class_indices.keys())
 
     # Load model
-    resnet_enc = resnet.get_network(
+    resnet_enc = resnet_cifar.get_network(
         hidden_dim=PROJECTOR_DIMENSIONALITY,
         use_pred=False,
         return_before_head=False,

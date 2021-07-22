@@ -9,8 +9,9 @@ from tensorflow.keras.models import Model
 import tensorflow as tf
 
 from utils.datasets import get_generators, create_classifier_dataset
+from utils.models.resnet import get_classifier
 from utils.train import lr_scheduler
-from utils.models import resnet
+from utils.models import resnet_cifar
 
 
 import numpy as np
@@ -76,29 +77,40 @@ def load_datasets():
     return ds, ds_val, ds_test, (steps_per_epoch, validation_steps, test_steps), classes
 
 
-def load_model(model_type, num_classes, steps_per_epoch):
+def load_model(model_type, num_classes, steps_per_epoch, cifar_reset):
     strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
     print('Number of devices:', strategy.num_replicas_in_sync)
 
     with strategy.scope():
-        resnet_enc = resnet.get_network(
-            hidden_dim=PROJECTOR_DIMENSIONALITY,
-            use_pred=False,
-            return_before_head=False,
-            input_shape=IMAGE_SHAPE
-        )
-
         if model_type not in ['supervised', 'barlow', 'barlow_fine_tuned']:
             raise ValueError
-        if 'barlow' in model_type:
-            resnet_enc.load_weights(os.path.join(PRETRAINED_DIR, 'encoder.h5'))
-            if 'fine_tuned' not in model_type:
-                resnet_enc.trainable = False
+        encoder_trainable = True if 'fine_tuned' not in model_type else False
+        encoder_weights_path = os.path.join(PRETRAINED_DIR, 'encoder.h5') if 'barlow' in model_type else None
 
-        inputs = Input(IMAGE_SHAPE)
-        x = resnet_enc(inputs)
-        x = Dense(num_classes, activation='softmax', kernel_initializer='he_normal')(x)
-        model = Model(inputs=inputs, outputs=x)
+        if cifar_reset:
+            resnet_enc = resnet_cifar.get_network(
+                hidden_dim=PROJECTOR_DIMENSIONALITY,
+                use_pred=False,
+                return_before_head=False,
+                input_shape=IMAGE_SHAPE
+            )
+
+            if 'barlow' in model_type:
+                resnet_enc.load_weights(encoder_weights_path)
+            resnet_enc.trainable = encoder_trainable
+
+            inputs = Input(IMAGE_SHAPE)
+            x = resnet_enc(inputs)
+            x = Dense(num_classes, activation='softmax', kernel_initializer='he_normal')(x)
+            model = Model(inputs=inputs, outputs=x)
+        else:
+            # Updated (larger) version of the encoder (ResNet50v2)
+            model = get_classifier(
+                num_classes=num_classes,
+                input_shape=IMAGE_SHAPE,
+                pretrained_dir=encoder_weights_path,
+                encoder_trainable=encoder_trainable
+            )
 
         # Set up optimizer
         warmup_epochs = 0.1
@@ -126,13 +138,14 @@ def load_model(model_type, num_classes, steps_per_epoch):
     return model
 
 
-def main(suffix=None, model_name=None):
+def main(suffix=None, model_name=None, cifar_resnet=True):
     save_dir = configure_saving(suffix, model_name)
     print('Saving at:', save_dir)
 
     ds, ds_val, ds_test, steps, classes = load_datasets()
     steps_per_epoch, validation_steps, test_steps = steps
-    model = load_model(MODEL_TYPE, len(classes), steps_per_epoch)
+
+    model = load_model(MODEL_TYPE, len(classes), steps_per_epoch, cifar_resnet=cifar_resnet)
 
     es = EarlyStopping(monitor='val_acc', mode='max', verbose=1, patience=PATIENCE)
     mc = ModelCheckpoint(
@@ -161,10 +174,14 @@ def main(suffix=None, model_name=None):
 
 
 if __name__ == '__main__':
-    MODEL_TYPE = 'barlow_fine_tuned'
+    MODEL_TYPE = 'supervised'
     PRETRAINED_DIR = f'trained_models/encoders/dim/encoder_2048'
     PROJECTOR_DIMENSIONALITY = 2048
-    
-    for s in [0.01, 0.05, 0.1, 0.2, 0.5, 0.85]:
+
+    ROOT_SAVE_DIR = 'trained_models/encoders'
+
+    DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_super'
+    DATASET_CONFIG['split_file_path'] = 'datasets/tissue_classification/fold_test.csv'
+    for s in [0.85]:
         DATASET_CONFIG['train_split'] = s
-        main(model_name= f'barlow_{s}')
+        main(model_name=f'supervised_resnet50_{s}', cifar_resnet=False)
