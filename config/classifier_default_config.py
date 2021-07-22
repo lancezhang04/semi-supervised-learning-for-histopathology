@@ -41,10 +41,10 @@ ROOT_SAVE_DIR = 'trained_models/classifiers'
 DATASET_CONFIG = {
     'type': 'tissue',
 
-    'split_file_path': 'tissue_classification/fold_test.csv',
+    'split_file_path': 'datasets/tissue_classification/fold_test.csv',
     'train_split': 0.5,
     'validation_split': 0.15,
-    'dataset_dir': 'tissue_classification/dataset',
+    'dataset_dir': 'datasets/tissue_classification/dataset',
     'groups': {
         'TUMOR': 'tumor',
         'STROMA': 'stroma',
@@ -53,4 +53,4 @@ DATASET_CONFIG = {
         'WHITE': 'white'
     },
     'major_groups': ['tumor', 'stroma']
-}
+    }

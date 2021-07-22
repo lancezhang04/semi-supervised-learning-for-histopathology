@@ -45,7 +45,7 @@ def get_dataset_df(config, random_seed, mode='classifier'):
     else:
         df.loc[df['hospital'].isin(split_file_path), 'split'] = 'test'
 
-    if mode == 'classifier':
+    if mode == 'classifier': 
         # Remove unwanted classes and group the remaining ones
         df = df[df['class'].isin(config['groups'].keys())]
         for k, v in config['groups'].items():

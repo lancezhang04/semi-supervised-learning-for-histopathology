@@ -77,8 +77,8 @@ def load_datasets():
     return ds, ds_val, ds_test, (steps_per_epoch, validation_steps, test_steps), classes
 
 
-def load_model(model_type, num_classes, steps_per_epoch, cifar_reset):
-    strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
+def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet, gpu_used=['GPU:0', 'GPU:1', 'GPU:2', 'GPU:3']):
+    strategy = tf.distribute.MirroredStrategy(gpu_used)
     print('Number of devices:', strategy.num_replicas_in_sync)
 
     with strategy.scope():
@@ -87,7 +87,7 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_reset):
         encoder_trainable = True if 'fine_tuned' not in model_type else False
         encoder_weights_path = os.path.join(PRETRAINED_DIR, 'encoder.h5') if 'barlow' in model_type else None
 
-        if cifar_reset:
+        if cifar_resnet:
             resnet_enc = resnet_cifar.get_network(
                 hidden_dim=PROJECTOR_DIMENSIONALITY,
                 use_pred=False,
@@ -177,11 +177,12 @@ if __name__ == '__main__':
     MODEL_TYPE = 'supervised'
     PRETRAINED_DIR = f'trained_models/encoders/dim/encoder_2048'
     PROJECTOR_DIMENSIONALITY = 2048
+    LEARNING_RATE = 5e-3
 
-    ROOT_SAVE_DIR = 'trained_models/encoders'
+    # ROOT_SAVE_DIR = 'trained_models/encoders'
 
-    DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_super'
+    # DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_super'
     DATASET_CONFIG['split_file_path'] = 'datasets/tissue_classification/fold_test.csv'
-    for s in [0.85]:
+    for s in [0.2]:
         DATASET_CONFIG['train_split'] = s
         main(model_name=f'supervised_resnet50_{s}', cifar_resnet=False)
