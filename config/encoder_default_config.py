@@ -7,7 +7,7 @@ PREFETCH = 8
 IMAGE_SHAPE = [224, 224, 3]
 FILTER_SIZE = 23
 
-PROJECTOR_DIMENSIONALITY = 1024
+PROJECTOR_DIM = 1024
 LEARNING_RATE_BASE = 1e-4
 
 PREPROCESSING_CONFIG = {
@@ -27,8 +27,8 @@ MODEL_WEIGHTS = None
 ROOT_SAVE_DIR = 'trained_models/encoders'
 
 DATASET_CONFIG = {
-    'split_file_path': 'tissue_classification/fold_test.csv',
-    'dataset_dir': 'tissue_classification/dataset'
+    'split_file_path': 'datasets/tissue_classification/fold_test.csv',
+    'dataset_dir': 'datasets/tissue_classification/dataset_encoder'
 }
 
 RANDOM_SEED = 42

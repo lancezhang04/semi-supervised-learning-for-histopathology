@@ -37,7 +37,7 @@ SHOW_TRAINING_VISUALIZATION = options.show_training_visualization
 CALCULATE_STATS = options.calculate_stats
 
 IMAGE_SHAPE = [224, 224, 3]
-PROJECTOR_DIMENSIONALITY = options.projector_dim
+PROJECTOR_DIM = options.projector_dim
 RANDOM_SEED = 42
 BATCH_SIZE = 128
 
@@ -86,7 +86,7 @@ if CALCULATE_STATS:
 
     # Load model
     resnet_enc = resnet_cifar.get_network(
-        hidden_dim=PROJECTOR_DIMENSIONALITY,
+        hidden_dim=PROJECTOR_DIM,
         use_pred=False,
         return_before_head=False,
         input_shape=IMAGE_SHAPE

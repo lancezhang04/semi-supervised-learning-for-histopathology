@@ -1,6 +1,7 @@
+from tensorflow.keras.layers import DepthwiseConv2D, Input
+from tensorflow.keras.models import Model
 import imgaug.augmenters as iaa
 import tensorflow as tf
-import tensorflow_addons as tfa
 import numpy as np
 
 
@@ -107,3 +108,21 @@ def get_gaussian_filter(shape=(3, 3), sigma=0.5):
         h /= sumh
 
     return h
+
+
+def get_blur_layer(filter_size, image_shape):
+    kernel_weights = get_gaussian_filter((filter_size, filter_size), sigma=1)
+    in_channels = 3
+    kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+    kernel_weights = np.repeat(kernel_weights, in_channels, axis=-1)
+    kernel_weights = np.expand_dims(kernel_weights, axis=-1)
+    blur_layer = DepthwiseConv2D(filter_size, use_bias=False, padding='same')
+
+    inputs = Input(image_shape)
+    outputs = blur_layer(inputs)
+    blur_layer = Model(inputs=inputs, outputs=outputs)
+
+    blur_layer.layers[1].set_weights([kernel_weights])
+    blur_layer.trainable = False
+
+    return blur_layer

@@ -2,17 +2,16 @@ from silence_tensorflow import silence_tensorflow
 silence_tensorflow()
 
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.layers import Input, DepthwiseConv2D
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.models import Model
 import tensorflow as tf
 
-from utils.image_augmentation import get_gaussian_filter
+from utils.image_augmentation import get_blur_layer
 from utils.train.callbacks import EncoderCheckpoint
 from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df
 from utils import image_augmentation
-from utils.train import lr_scheduler
+from utils.train.lr_scheduler import get_decay_fn
+from utils.models.resnet import get_barlow_encoder
 from utils.models import resnet_cifar
 
 import numpy as np
@@ -30,7 +29,7 @@ def configure_saving(suffix=None, model_name=None):
     # Format model name
     if model_name is None:
         dataset_type = 'tissue' if 'tissue' in DATASET_CONFIG['dataset_dir'] else 'cell'
-        model_name = f'encoder_{dataset_type}_{IMAGE_SHAPE[0]}_{PROJECTOR_DIMENSIONALITY}_' + \
+        model_name = f'encoder_{dataset_type}_{IMAGE_SHAPE[0]}_{PROJECTOR_DIM}_' + \
                      f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE_BASE}'
         if suffix is not None:
             suffix = '_' + suffix if suffix[0] != '_' else suffix
@@ -108,55 +107,30 @@ def load_dataset():
     return data_generator(), steps_per_epoch
 
 
-def load_model(steps_per_epoch):
+def load_model(steps_per_epoch, cifar_resnet=True):
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices:', strategy.num_replicas_in_sync)
 
     with strategy.scope():
-        # -------------------
-        # Model      | n   |
-        # ResNet20   | 2   |
-        # ResNet56   | 6   |
-        # ResNet110  | 12  |
-        # ResNet164  | 18  |
-        # ResNet1001 | 111 |
+        if cifar_resnet:
+            resnet_enc = resnet_cifar.get_network(
+                n=2,
+                hidden_dim=PROJECTOR_DIM,
+                use_pred=False,
+                return_before_head=False,
+                input_shape=IMAGE_SHAPE
+            )
+            if MODEL_WEIGHTS:
+                resnet_enc.load_weights(MODEL_WEIGHTS)
+                if VERBOSE:
+                    print('Using (pretrained) model weights')
+        else:
+            resnet_enc = get_barlow_encoder(IMAGE_SHAPE, PROJECTOR_DIM, hidden_layers=3)
 
-        resnet_enc = resnet_cifar.get_network(
-            n=2,
-            hidden_dim=PROJECTOR_DIMENSIONALITY,
-            use_pred=False,
-            return_before_head=False,
-            input_shape=IMAGE_SHAPE
-        )
-        if MODEL_WEIGHTS:
-            resnet_enc.load_weights(MODEL_WEIGHTS)
-            if VERBOSE:
-                print('Using (pretrained) model weights')
-
-        kernel_weights = get_gaussian_filter((FILTER_SIZE, FILTER_SIZE), sigma=1)
-        in_channels = 3
-        kernel_weights = np.expand_dims(kernel_weights, axis=-1)
-        kernel_weights = np.repeat(kernel_weights, in_channels, axis=-1)
-        kernel_weights = np.expand_dims(kernel_weights, axis=-1)
-        blur_layer = DepthwiseConv2D(FILTER_SIZE, use_bias=False, padding='same')
-
-        inputs = Input(IMAGE_SHAPE)
-        outputs = blur_layer(inputs)
-        blur_layer = Model(inputs=inputs, outputs=outputs)
-
-        blur_layer.layers[1].set_weights([kernel_weights])
-        blur_layer.trainable = False
+        blur_layer = get_blur_layer(FILTER_SIZE, IMAGE_SHAPE)
 
         # Load optimizer
-        WARMUP_EPOCHS = int(EPOCHS * 0.1)
-        WARMUP_STEPS = int(WARMUP_EPOCHS * steps_per_epoch)
-
-        lr_decay_fn = lr_scheduler.WarmUpCosine(
-            learning_rate_base=LEARNING_RATE_BASE,
-            total_steps=EPOCHS * steps_per_epoch,
-            warmup_learning_rate=0.0,
-            warmup_steps=WARMUP_STEPS
-        )
+        lr_decay_fn = get_decay_fn(LEARNING_RATE_BASE, EPOCHS, steps_per_epoch)
         optimizer = tf.keras.optimizers.Adam(lr_decay_fn)
 
         # Get model
@@ -176,12 +150,12 @@ def load_model(steps_per_epoch):
     return barlow_twins, resnet_enc
 
 
-def main(suffix=None, model_name=None):
+def main(suffix=None, model_name=None, cifar_resnet=True):
     save_dir = configure_saving(suffix, model_name)
     print('Saving at:', save_dir)
 
     dataset, steps_per_epoch = load_dataset()
-    barlow_twins, resnet_enc = load_model(steps_per_epoch)
+    barlow_twins, resnet_enc = load_model(steps_per_epoch, cifar_resnet=cifar_resnet)
 
     es = EarlyStopping(monitor='loss', mode='min', verbose=1, patience=PATIENCE)
     mc = EncoderCheckpoint(resnet_enc, save_dir)
@@ -208,8 +182,8 @@ if __name__ == '__main__':
     
     print(PREPROCESSING_CONFIG)
     
-    PROJECTOR_DIMENSIONALITY = 1024
-    main(model_name='encoder_1024')
+    PROJECTOR_DIM = 1024
+    main(model_name='encoder_1024', cifar_resnet=False)
 
 #     PROJECTOR_DIMENSIONALITY = 512
 #     main(model_name='encoder_512')
