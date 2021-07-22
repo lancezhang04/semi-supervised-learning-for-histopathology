@@ -62,7 +62,7 @@ def save_splits(folds, counts):
         df = pd.DataFrame(df)
         df['split'] = 'test'
 
-        df.to_csv(os.path.join(SAVE_DIR, f'test_fold_{i}.csv'))
+        df.to_csv(os.path.join(SAVE_DIR, f'fold{i}.csv'))
 
         meta_file.write(str(counts[i]) + ' - ' + ', '.join(fold) + '\n')
 
@@ -78,8 +78,8 @@ def main():
 if __name__ == '__main__':
     TEST_SPLIT = 0.15
     NUM_FOLDS = 6
-    ROOT_DIR = '../tissue_classification/rgbs_colorNormalized'
-    SAVE_DIR = '../tissue_classification/splits'
+    ROOT_DIR = '../../tissue_classification/rgbs_colorNormalized'
+    SAVE_DIR = 'splits'
     RANDOM_SEED = 42
 
     main()

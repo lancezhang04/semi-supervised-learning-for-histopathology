@@ -23,6 +23,18 @@ np.random.seed(RANDOM_SEED)
 tf.random.set_seed(RANDOM_SEED)
 
 
+def load_splits(use_cross_validation, split_files_folder):
+    if use_cross_validation:
+        split_file_paths = [n for n in os.listdir(split_files_folder) if n.split('.')[1] == 'csv']
+        split_file_paths = [os.path.join(split_files_folder,  n) for n in split_file_paths]
+        print('Using', len(split_file_paths), 'fold validation')
+        print('\n'.join(split_file_paths) + '\n')
+    else:
+        split_file_paths = [DATASET_CONFIG['split_file_path']]
+    
+    return split_file_paths
+
+
 def configure_saving(suffix=None, model_name=None):
     if model_name is None:
         dataset_type = DATASET_CONFIG['type']
@@ -76,8 +88,8 @@ def load_datasets():
     return ds, ds_val, ds_test, (steps_per_epoch, validation_steps, test_steps), classes
 
 
-def load_model(model_type, num_classes, steps_per_epoch):
-    strategy = tf.distribute.MirroredStrategy(['GPU:1', 'GPU:2', 'GPU:3'])
+def load_classifier(model_type, num_classes, steps_per_epoch, gpu_used=['GRU:0', 'GPU:1', 'GPU:2', 'GPU:3']):
+    strategy = tf.distribute.MirroredStrategy(gpu_used)
     print('Number of devices:', strategy.num_replicas_in_sync)
 
     with strategy.scope():
@@ -88,17 +100,18 @@ def load_model(model_type, num_classes, steps_per_epoch):
             input_shape=IMAGE_SHAPE
         )
 
+        inputs = Input(IMAGE_SHAPE)
+        x = resnet_enc(inputs)
+        x = Dense(num_classes, activation='softmax', kernel_initializer='he_normal')(x)
+        model = Model(inputs=inputs, outputs=x)
+        
+        # Load pretrained weight if necessary
         if model_type not in ['supervised', 'barlow', 'barlow_fine_tuned']:
             raise ValueError
         if 'barlow' in model_type:
             resnet_enc.load_weights(os.path.join(PRETRAINED_DIR, 'encoder.h5'))
             if 'fine_tuned' not in model_type:
                 resnet_enc.trainable = False
-
-        inputs = Input(IMAGE_SHAPE)
-        x = resnet_enc(inputs)
-        x = Dense(num_classes, activation='softmax', kernel_initializer='he_normal')(x)
-        model = Model(inputs=inputs, outputs=x)
 
         # Set up optimizer
         warmup_epochs = 0.1
@@ -132,7 +145,7 @@ def main(suffix=None, model_name=None):
 
     ds, ds_val, ds_test, steps, classes = load_datasets()
     steps_per_epoch, validation_steps, test_steps = steps
-    model = load_model(MODEL_TYPE, len(classes), steps_per_epoch)
+    model = load_classifier(MODEL_TYPE, len(classes), steps_per_epoch)
 
     es = EarlyStopping(monitor='val_acc', mode='max', verbose=1, patience=PATIENCE)
     mc = ModelCheckpoint(
@@ -161,10 +174,21 @@ def main(suffix=None, model_name=None):
 
 
 if __name__ == '__main__':
+#     for i in [0.01, 0.05, 0.2, 0.5, 0.85]:
+#         DATASET_CONFIG['train_split'] = i
+#         main(model_name=f'supervised_{i}_baseline')
+    
+    use_cross_validation = True
+    # Folder containing all cross validation splits
+    split_files_folder = 'datasets/tissue_classification/splits'
+    split_file_paths = load_splits(use_cross_validation, split_files_folder)
+
     MODEL_TYPE = 'barlow_fine_tuned'
-    PRETRAINED_DIR = f'trained_models/encoders/dim/encoder_2048'
+    PRETRAINED_DIR = f'trained_models/encoders/baseline_30'
+    ROOT_SAVE_DIR = 'trained_models/classifiers/barlow_30_models'
     PROJECTOR_DIMENSIONALITY = 2048
     
-    for s in [0.01, 0.05, 0.1, 0.2, 0.5, 0.85]:
-        DATASET_CONFIG['train_split'] = s
-        main(model_name= f'barlow_{s}')
+    for split_file_path in split_file_paths:
+        for s in [0.01, 0.2, 0.85]:
+            DATASET_CONFIG['train_split'] = s
+            main(model_name=f'barlow_{s}_{os.path.basename(split_file_path).split(".")[0]}')

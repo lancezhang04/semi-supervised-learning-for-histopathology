@@ -203,13 +203,10 @@ if __name__ == '__main__':
     # Overwrite default values
     BATCH_SIZE = 256
     IMAGE_SHAPE = [224, 224, 3]
-    EPOCHS = 30
-    ROOT_SAVE_DIR = 'trained_models/encoders/dim_test'
+    EPOCHS = 60
+    ROOT_SAVE_DIR = 'trained_models/encoders/'
     
-    print(PREPROCESSING_CONFIG)
-    
-    PROJECTOR_DIMENSIONALITY = 1024
-    main(model_name='encoder_1024')
+    main(model_name='baseline_60')
 
 #     PROJECTOR_DIMENSIONALITY = 512
 #     main(model_name='encoder_512')

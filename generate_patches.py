@@ -105,15 +105,15 @@ def main():
 
 
 if __name__ == '__main__':
-    MASKS_DIR = 'datasets/tissue_classification/masks'
-    RGB_DIR = 'datasets/tissue_classification/rgbs_colorNormalized'
+    MASKS_DIR = 'tissue_classification/masks'
+    RGB_DIR = 'tissue_classification/rgbs_colorNormalized'
 
     PATCH_SIZE = 224
     STEP_SIZE = int(0.5 * PATCH_SIZE)
-    THRESHOLD = 0.5
-    INCLUDE_EXCLUDE = True
+    THRESHOLD = 0.3
+    INCLUDE_EXCLUDE = False
 
-    TARGET_DIR = 'datasets/tissue_classification/dataset_test'
+    TARGET_DIR = 'datasets/tissue_classification/dataset_super_0.3'
     GENERATE_ENCODER_DATASET = False
     ENCODER_TARGET_DIR = 'datasets/tissue_classification/dataset_encoder'
 
