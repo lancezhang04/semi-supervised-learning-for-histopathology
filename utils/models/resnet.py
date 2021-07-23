@@ -21,12 +21,7 @@ def get_encoder(input_shape=(224, 224, 3), weights=None):
     return encoder
 
 
-def get_classifier(num_classes, input_shape=(224, 224, 3), pretrained_dir=None, encoder_trainable=True):
-    if pretrained_dir is not None:
-        encoder_weights = os.path.join(pretrained_dir, 'encoder.h5')
-    else:
-        encoder_weights = None
-
+def get_classifier(num_classes, input_shape=(224, 224, 3), encoder_weights=None, encoder_trainable=True):
     # Outputs a 2048-d feature
     encoder = get_encoder(input_shape=input_shape, weights=encoder_weights)
     encoder.trainable = encoder_trainable

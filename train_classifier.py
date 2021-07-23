@@ -84,31 +84,28 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet, gpu_used=
     with strategy.scope():
         if model_type not in ['supervised', 'barlow', 'barlow_fine_tuned']:
             raise ValueError
-        encoder_trainable = True if 'fine_tuned' not in model_type else False
-        encoder_weights_path = os.path.join(PRETRAINED_DIR, 'encoder.h5') if 'barlow' in model_type else None
+        encoder_trainable = False if ('barlow' in model_type and 'fine_tuned' not in model_type) else True
+        print('Encoder trainable:', encoder_trainable)
+        if 'barlow' in model_type:
+            model_name = 'encoder.h5' if cifar_resnet else 'resnet.h5'
+            encoder_weights_path = os.path.join(PRETRAINED_DIR, model_name)
+        else:
+            encoder_weights_path = None
 
         if cifar_resnet:
-            resnet_enc = resnet_cifar.get_network(
-                hidden_dim=PROJECTOR_DIMENSIONALITY,
-                use_pred=False,
-                return_before_head=False,
-                input_shape=IMAGE_SHAPE
+            # Smaller modified ResNet20 that outputs a 256-d features?
+            model = resnet_cifar.get_classifier(
+                projector_dim=PROJECTOR_DIMENSIONALITY,
+                num_classes=num_classes,
+                encoder_weights=encoder_weights_path,
+                image_shape=IMAGE_SHAPE
             )
-
-            if 'barlow' in model_type:
-                resnet_enc.load_weights(encoder_weights_path)
-            resnet_enc.trainable = encoder_trainable
-
-            inputs = Input(IMAGE_SHAPE)
-            x = resnet_enc(inputs)
-            x = Dense(num_classes, activation='softmax', kernel_initializer='he_normal')(x)
-            model = Model(inputs=inputs, outputs=x)
         else:
             # Updated (larger) version of the encoder (ResNet50v2)
             model = get_classifier(
                 num_classes=num_classes,
                 input_shape=IMAGE_SHAPE,
-                pretrained_dir=encoder_weights_path,
+                encoder_weights=encoder_weights_path,
                 encoder_trainable=encoder_trainable
             )
 
@@ -168,21 +165,19 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
         pickle.dump(history.history, file)
 
     model.load_weights(os.path.join(save_dir, 'classifier.h5'))
-    model.layers[1].save_weights(os.path.join(save_dir, 'resnet_enc.h5'))
+    model.layers[1].save_weights(os.path.join(save_dir, 'encoder.h5'))
 
     model.evaluate(ds_test, steps=test_steps)
 
 
 if __name__ == '__main__':
-    MODEL_TYPE = 'supervised'
-    PRETRAINED_DIR = f'trained_models/encoders/dim/encoder_2048'
+    MODEL_TYPE = ['barlow_fine_tuned', 'supervised'][0]
+    PRETRAINED_DIR = f'trained_models/encoders/encoder_resnet50_2048'
     PROJECTOR_DIMENSIONALITY = 2048
     LEARNING_RATE = 5e-3
-
-    # ROOT_SAVE_DIR = 'trained_models/encoders'
 
     # DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_super'
     DATASET_CONFIG['split_file_path'] = 'datasets/tissue_classification/fold_test.csv'
     for s in [0.2]:
         DATASET_CONFIG['train_split'] = s
-        main(model_name=f'supervised_resnet50_{s}', cifar_resnet=False)
+        main(model_name=f'barlow_resnet50_{s}', cifar_resnet=False)

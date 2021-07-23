@@ -171,6 +171,9 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
     # Save training history
     with open(os.path.join(save_dir, 'history.pickle'), 'wb') as file:
         pickle.dump(history.history, file)
+        
+    # Save weights for the ResNet backbone
+    resnet_enc.layers[1].save_weights(os.path.join(save_dir, 'resnet.h5'))
 
 
 if __name__ == '__main__':
@@ -178,12 +181,10 @@ if __name__ == '__main__':
     BATCH_SIZE = 256
     IMAGE_SHAPE = [224, 224, 3]
     EPOCHS = 30
-    ROOT_SAVE_DIR = 'trained_models/encoders/dim_test'
+    ROOT_SAVE_DIR = 'trained_models/encoders'
     
-    print(PREPROCESSING_CONFIG)
-    
-    PROJECTOR_DIM = 1024
-    main(model_name='encoder_1024', cifar_resnet=False)
+    PROJECTOR_DIM = 2048
+    main(model_name='encoder_resnet50_2048', cifar_resnet=False)
 
 #     PROJECTOR_DIMENSIONALITY = 512
 #     main(model_name='encoder_512')

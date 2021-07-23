@@ -270,3 +270,23 @@ def get_network(n=2, hidden_dim=128, use_pred=False, return_before_head=True, in
             model = Model(inputs, prediction_outputs)
 
     return model
+
+
+def get_classifier(projector_dim, num_classes, encoder_weights=None, image_shape=(224, 224, 3)):
+    resnet_enc = get_network(
+        hidden_dim=projector_dim,
+        use_pred=False,
+        return_before_head=False,
+        input_shape=image_shape
+    )
+    
+    if encoder_weights is not None:
+        resnet_enc.load_weights(encoder_weights)
+    resent_enc.trainable = encoder_trainable
+    
+    inputs = Input(IMAGE_SHAPE)
+    x = resnet_enc(inputs)
+    x = Dense(num_classes, activation='softmax', kernel_initializer='he_normal')(x)
+    model = Model(inputs=inputs, outputs=x)
+    
+    return model
