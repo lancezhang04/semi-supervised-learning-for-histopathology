@@ -9,9 +9,8 @@ from tensorflow.keras.models import Model
 import tensorflow as tf
 
 from utils.datasets import get_generators, create_classifier_dataset
-from utils.models.resnet import get_classifier
 from utils.train import lr_scheduler
-from utils.models import resnet_cifar
+from utils.models import resnet_cifar, resnet
 
 
 import numpy as np
@@ -29,7 +28,7 @@ def configure_saving(suffix=None, model_name=None):
         dataset_type = DATASET_CONFIG['type']
         model_name = f'{MODEL_TYPE}_' + \
                      f'{dataset_type}_{IMAGE_SHAPE[0]}_{DATASET_CONFIG["train_split"]}_' + \
-                     f'{PROJECTOR_DIMENSIONALITY}_' + \
+                     f'{PROJECTOR_DIM}_' + \
                      f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE}'
         if suffix is not None:
             suffix = '_' + suffix if suffix[0] != '_' else suffix
@@ -77,7 +76,10 @@ def load_datasets():
     return ds, ds_val, ds_test, (steps_per_epoch, validation_steps, test_steps), classes
 
 
-def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet, gpu_used=['GPU:0', 'GPU:1', 'GPU:2', 'GPU:3']):
+def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet,
+               image_shape=IMAGE_SHAPE, lr=LEARNING_RATE, epochs=EPOCHS,
+               projector_dim=PROJECTOR_DIM, evaluation=False,
+               gpu_used=('GPU:0', 'GPU:1', 'GPU:2', 'GPU:3')):
     strategy = tf.distribute.MirroredStrategy(gpu_used)
     print('Number of devices:', strategy.num_replicas_in_sync)
 
@@ -86,7 +88,11 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet, gpu_used=
             raise ValueError
         encoder_trainable = False if ('barlow' in model_type and 'fine_tuned' not in model_type) else True
         print('Encoder trainable:', encoder_trainable)
-        if 'barlow' in model_type:
+
+        if not evaluation:
+            # Test time ==> no need to load pre-trained weights
+            encoder_weights_path = None
+        elif 'barlow' in model_type:
             model_name = 'encoder.h5' if cifar_resnet else 'resnet.h5'
             encoder_weights_path = os.path.join(PRETRAINED_DIR, model_name)
         else:
@@ -95,16 +101,16 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet, gpu_used=
         if cifar_resnet:
             # Smaller modified ResNet20 that outputs a 256-d features?
             model = resnet_cifar.get_classifier(
-                projector_dim=PROJECTOR_DIMENSIONALITY,
+                projector_dim=projector_dim,
                 num_classes=num_classes,
                 encoder_weights=encoder_weights_path,
-                image_shape=IMAGE_SHAPE
+                image_shape=image_shape
             )
         else:
             # Updated (larger) version of the encoder (ResNet50v2)
-            model = get_classifier(
+            model = resnet.get_classifier(
                 num_classes=num_classes,
-                input_shape=IMAGE_SHAPE,
+                input_shape=image_shape,
                 encoder_weights=encoder_weights_path,
                 encoder_trainable=encoder_trainable
             )
@@ -114,8 +120,8 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet, gpu_used=
         warmup_steps = int(warmup_epochs * steps_per_epoch)
 
         lr_decay_fn = lr_scheduler.WarmUpCosine(
-            learning_rate_base=LEARNING_RATE,
-            total_steps=EPOCHS * steps_per_epoch,
+            learning_rate_base=lr,
+            total_steps=epochs * steps_per_epoch,
             warmup_learning_rate=0.0,
             warmup_steps=warmup_steps
         )
@@ -173,7 +179,7 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
 if __name__ == '__main__':
     MODEL_TYPE = ['barlow_fine_tuned', 'supervised'][0]
     PRETRAINED_DIR = f'trained_models/encoders/encoder_resnet50_2048'
-    PROJECTOR_DIMENSIONALITY = 2048
+    PROJECTOR_DIM = 2048
     LEARNING_RATE = 5e-3
 
     # DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_super'

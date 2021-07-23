@@ -3,7 +3,7 @@ silence_tensorflow()
 
 import tensorflow as tf
 from sklearn.metrics import confusion_matrix, roc_auc_score
-from utils.train.visualization import visualize_training
+from utils.train.visualization import analyze_history
 from utils.datasets import get_generators
 import matplotlib.pyplot as plt
 from seaborn import heatmap
@@ -51,7 +51,7 @@ tf.random.set_seed(RANDOM_SEED)
 # region
 
 if SHOW_TRAINING_VISUALIZATION:
-    visualize_training(os.path.join(DIR, 'history.pickle'))
+    analyze_history(os.path.join(DIR, 'history.pickle'))
 # endregion
 
 
@@ -62,7 +62,7 @@ if SHOW_TRAINING_VISUALIZATION:
 
 if CALCULATE_STATS:
     print('\nCalculating statistics...')
-    
+
     from tensorflow.keras.layers import Input, Dense
     from tensorflow.keras.models import Model
     from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
@@ -74,7 +74,7 @@ if CALCULATE_STATS:
         DATASET_CONFIG = json.load(file)
     if OVERRIDE_DATASET_DIR is not None:
         DATASET_CONFIG['dataset_dir'] = OVERRIDE_DATASET_DIR
-    
+
     datagen_test = get_generators(['test'], IMAGE_SHAPE, BATCH_SIZE, RANDOM_SEED, DATASET_CONFIG)[0]
     datagen_test_minor, datagen_test_major = get_generators(
         ['test'],
@@ -96,7 +96,7 @@ if CALCULATE_STATS:
     x = resnet_enc(inputs)
     resnet_enc.trainable = TRAINABLE
     x = Dense(len(CLASSES), activation='softmax', kernel_initializer='he_normal')(x)
-    
+
     model = Model(inputs=inputs, outputs=x)
     model.compile(
         optimizer='adam',
