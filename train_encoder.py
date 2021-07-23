@@ -11,8 +11,7 @@ from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df
 from utils import image_augmentation
 from utils.train.lr_scheduler import get_decay_fn
-from utils.models.resnet import get_barlow_encoder
-from utils.models import resnet_cifar
+from utils.models import resnet_cifar, resnet
 
 import numpy as np
 import pickle
@@ -125,7 +124,7 @@ def load_model(steps_per_epoch, cifar_resnet=True):
                 if VERBOSE:
                     print('Using (pretrained) model weights')
         else:
-            resnet_enc = get_barlow_encoder(IMAGE_SHAPE, PROJECTOR_DIM, hidden_layers=3)
+            resnet_enc = resnet.get_barlow_encoder(IMAGE_SHAPE, PROJECTOR_DIM, hidden_layers=3)
 
         blur_layer = get_blur_layer(FILTER_SIZE, IMAGE_SHAPE)
 

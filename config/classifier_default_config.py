@@ -1,5 +1,5 @@
 MODEL_TYPE = ['supervised', 'barlow', 'barlow_fine_tuned'][2]
-PROJECTOR_DIMENSIONALITY = 1024
+PROJECTOR_DIM = 1024
 IMAGE_SHAPE = [224, 224, 3]
 
 BATCH_SIZE = 256
