@@ -10,7 +10,7 @@ from train_classifier import load_model
 from utils.train.visualization import analyze_history
 from utils.models import resnet_cifar, resnet
 from utils.datasets import get_generators
-from sklearn.metrics import confusion_matrix, roc_auc_score
+from sklearn.metrics import confusion_matrix, roc_auc_score, f1_score
 import matplotlib.pyplot as plt
 from seaborn import heatmap
 from tqdm import tqdm
@@ -90,9 +90,14 @@ def create_conf_matrix(datagen, model, classes):
     plt.savefig(os.path.join(visualization_save_dir, 'confusion_matrix.png'))
 
     # Calculate AUROC
-    micro_auroc = roc_auc_score(all_labels, all_preds, average='micro')
-    macro_auroc = roc_auc_score(all_labels, all_preds, average='macro')
-    print('Micro AUROC:', round(micro_auroc, 4), 'Macro AUROC:', round(macro_auroc, 4))
+    for average in ['micro', 'macro', 'weighted']:
+        score = roc_auc_score(all_labels, all_preds, average=average)
+        print(average.title(), 'AUROC:', round(score, 4))
+        
+    # Calculate f1 scores
+#     for average in ['micro', 'macro', 'weighted']:
+#         score = f1_score(all_labels, all_preds, average=average)
+#         print(average.title(), 'F1 score:', round(score, 4))
 
 
 def main():
@@ -126,13 +131,14 @@ def main():
 
 
 if __name__ == '__main__':
-    SAVE_DIR = 'trained_models/classifiers/supervised_resnet50_0.2'
     PROJECTOR_DIM = 2048
     BATCH_SIZE = 256
     
     visualization_save_dir = 'visualization'
     cifar_resnet = False
     
+#     SAVE_DIR = 'trained_models/classifiers/resnet50_100_lr/barlow_0.5'
+#     main()
     SAVE_DIR = 'trained_models/classifiers/resnet50_100_lr/barlow_0.5'
     main()
     

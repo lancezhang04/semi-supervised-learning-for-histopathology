@@ -1,22 +1,21 @@
 from silence_tensorflow import silence_tensorflow
 silence_tensorflow()
 
+import numpy as np
+import pickle
+import json
+import os
+
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
 from tensorflow.keras.layers import Input, Dense
-from tensorflow_addons.optimizers import SGDW
+from tensorflow_addons.optimizers import SGDW, MultiOptimizer
 from tensorflow.keras.models import Model
 import tensorflow as tf
 
 from utils.datasets import get_generators, create_classifier_dataset
 from utils.train import lr_scheduler
 from utils.models import resnet_cifar, resnet
-
-
-import numpy as np
-import pickle
-import json
-import os
 
 from config.classifier_default_config import *
 np.random.seed(RANDOM_SEED)
@@ -56,6 +55,20 @@ def load_datasets():
         IMAGE_SHAPE, 1,
         RANDOM_SEED, config=DATASET_CONFIG
     )
+    print(datagen.class_indices)
+    
+    # Load class weight
+    class_weight = None
+    if use_class_weight:
+        with open(os.path.join(DATASET_CONFIG['dataset_dir'], 'class_weight.json'), 'r') as file:
+            class_weight = json.load(file)
+            
+        groups = DATASET_CONFIG['groups']
+        class_weight = {groups[k]: v for k, v in class_weight.items() if k in groups.keys()}
+        
+        class_weight = {datagen.class_indices[k]: v for k, v in class_weight.items()}
+        print('Using class weights:', class_weight)
+    
     classes = list(datagen.class_indices.keys())
     steps_per_epoch = len(datagen) // BATCH_SIZE
     validation_steps = len(datagen_val) // BATCH_SIZE
@@ -73,16 +86,16 @@ def load_datasets():
     ds_test = ds_test.batch(BATCH_SIZE)
     ds_test = ds_test.prefetch(PREFETCH)
 
-    return ds, ds_val, ds_test, (steps_per_epoch, validation_steps, test_steps), classes
+    return ds, ds_val, ds_test, (steps_per_epoch, validation_steps, test_steps), classes, class_weight
 
 
 def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet,
-               image_shape=(224, 224, 3), lr=5e-3, epochs=30,
+               image_shape=(224, 224, 3), encoder_lr=0.002, classifier_lr=0.5, epochs=30,
                projector_dim=2048, evaluation=False,
                gpu_used=('GPU:0', 'GPU:1', 'GPU:2', 'GPU:3')):
     
     # DEBUG
-    print(model_type, num_classes, steps_per_epoch, cifar_resnet, image_shape, lr, epochs, projector_dim, evaluation)
+    print(model_type, num_classes, steps_per_epoch, cifar_resnet, image_shape, encoder_lr, epochs, projector_dim, evaluation)
     
     strategy = tf.distribute.MirroredStrategy(gpu_used)
     print('Number of devices:', strategy.num_replicas_in_sync)
@@ -123,16 +136,25 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet,
         # Set up optimizer
         warmup_epochs = 0.1
         warmup_steps = int(warmup_epochs * steps_per_epoch)
-
-        lr_decay_fn = lr_scheduler.WarmUpCosine(
-            learning_rate_base=lr,
-            total_steps=epochs * steps_per_epoch,
-            warmup_learning_rate=0.0,
-            warmup_steps=warmup_steps
-        )
-
-        optimizer = SGDW(learning_rate=lr_decay_fn, momentum=0.9, nesterov=False, weight_decay=1e-6)
         
+        def get_optimizer(base_lr):
+            lr_fn = lr_scheduler.WarmUpCosine(
+                learning_rate_base=base_lr,
+                total_steps=epochs * steps_per_epoch,
+                warmup_learning_rate=0.0,
+                warmup_steps=warmup_steps
+            )
+            
+            return SGDW(learning_rate=lr_fn, momentum=0.9, weight_decay=0)
+        
+        print('Using learning rates:', classifier_lr, encoder_lr)
+        optimizers_and_layers = [
+            (get_optimizer(encoder_lr), model.layers[1]),  # encoder
+            (get_optimizer(classifier_lr), model.layers[2])  # classification head
+        ]
+        optimizer = MultiOptimizer(optimizers_and_layers)
+        
+        # Compile model
         model.summary()
         model.compile(
             optimizer=optimizer,
@@ -147,11 +169,11 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet,
     return model
 
 
-def main(suffix=None, model_name=None, cifar_resnet=True):
+def main(suffix=None, model_name=None):
     save_dir = configure_saving(suffix, model_name)
     print('Saving at:', save_dir)
 
-    ds, ds_val, ds_test, steps, classes = load_datasets()
+    ds, ds_val, ds_test, steps, classes, class_weight = load_datasets()
     steps_per_epoch, validation_steps, test_steps = steps
 
     model = load_model(
@@ -160,7 +182,8 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
         steps_per_epoch=steps_per_epoch, 
         cifar_resnet=cifar_resnet,
         image_shape=IMAGE_SHAPE,
-        lr=LEARNING_RATE,
+        encoder_lr=encoder_lr,
+        classifier_lr=LEARNING_RATE,
         epochs=EPOCHS,
         projector_dim=PROJECTOR_DIM,
         evaluation=False
@@ -181,7 +204,8 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
         steps_per_epoch=steps_per_epoch,
         validation_steps=validation_steps,
         validation_data=ds_val,
-        callbacks=[mc, es]
+        callbacks=[mc, es],
+        class_weight=class_weight
     )
     with open(os.path.join(save_dir, 'history.pickle'), 'wb') as file:
         pickle.dump(history.history, file)
@@ -193,20 +217,19 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
 
 
 if __name__ == '__main__':
+    use_class_weight = False
+    cifar_resnet = False
+    
     MODEL_TYPE = ['barlow_fine_tuned', 'supervised'][0]
     PROJECTOR_DIM = 2048
-    LEARNING_RATE = 5e-3
+    LEARNING_RATE = 0.5
+    encoder_lr = 0.5
+    DATASET_CONFIG['train_split'] = 0.1
 
     
     PRETRAINED_DIR = f'trained_models/encoders/encoder_resnet50_100_baseline'
-    ROOT_SAVE_DIR = 'trained_models/classifiers/resnet50_100_curve'
+    ROOT_SAVE_DIR = 'trained_models/classifiers/resnet50_lr_multiplier_test'
     
-    DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_main_0.3'
-    DATASET_CONFIG['split_file_path'] = 'datasets/tissue_classification/fold_test.csv'
     
-    LEARNING_RATE = 0.5
-    for s in [0.01]: 
-        DATASET_CONFIG['train_split'] = s
-
-        MODEL_TYPE = 'barlow_fine_tuned'
-        main(model_name=f'barlow_{s}', cifar_resnet=False)
+#     for lr in [1e-3, 5e-3, 1e-2, 5e-2, 0.1]: 
+    main(model_name=f'barlow_{LEARNING_RATE}_{encoder_lr}')
