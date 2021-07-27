@@ -1,0 +1,27 @@
+#INITIAL SETTINGS
+random_seed       : 42
+
+#Training parameters
+epochs            : 30
+batch_size        : 256
+patience          : ~
+prefetch          : 8
+gpu_used          : ['GPU:0', 'GPU:1', 'GPU:2', 'GPU:3']
+
+classifier_lr     : 0.5
+encoder_lr        : 0.002
+class_weight      : False
+
+root_save_dir     : 'trained_models/classifiers'
+
+#Model parameters
+cifar_resnet      : False
+projector_dim     : 2048
+pretrained_dir    : None
+model_type        : 'supervised'
+
+#Dataset parameters
+image_shape       : [224, 224, 3]
+train_split       : 0.1
+validation_split  : 0.15
+dataset_type      : 'tissue_8_0.3'

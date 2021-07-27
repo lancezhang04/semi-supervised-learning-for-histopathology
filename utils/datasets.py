@@ -87,10 +87,10 @@ def get_dataset_df(config, random_seed, mode='classifier'):
 
 
 def get_generators(splits, image_shape, batch_size,
-                   random_seed, config=None, df=None, separate_evaluation_groups=False,
+                   random_seed, dataset_config=None, df=None, separate_evaluation_groups=False,
                    y_col='class', shuffle=True):
     if df is None:
-        df = get_dataset_df(config, random_seed)
+        df = get_dataset_df(dataset_config, random_seed)
 
     generators = []
     for split in splits:

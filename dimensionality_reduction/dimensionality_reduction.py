@@ -71,7 +71,7 @@ y_col = {
 
 datagen = get_generators(
     [USE_SPLIT], IMAGE_SHAPE, 32,
-    config=None, random_seed=42, df=dataset_df,
+    dataset_config=None, random_seed=42, df=dataset_df,
     y_col=y_col[GROUP_BY], shuffle=False
 )[0]
 

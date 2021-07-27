@@ -35,7 +35,7 @@ def load_datagens():
         image_shape=IMAGE_SHAPE,
         batch_size=BATCH_SIZE,
         random_seed=RANDOM_SEED,
-        config=DATASET_CONFIG,
+        dataset_config=DATASET_CONFIG,
         separate_evaluation_groups=False
     )[0])
     datagens.extend(get_generators(
@@ -43,7 +43,7 @@ def load_datagens():
         image_shape=IMAGE_SHAPE,
         batch_size=BATCH_SIZE,
         random_seed=RANDOM_SEED,
-        config=DATASET_CONFIG,
+        dataset_config=DATASET_CONFIG,
         separate_evaluation_groups=True
     )[0])
 
