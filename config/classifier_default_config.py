@@ -18,39 +18,61 @@ ROOT_SAVE_DIR = 'trained_models/classifiers'
 # ==================================================================================================================== #
 
 # cell classification
-'''DATASET_CONFIG = {
-    'type': 'cell',
+# DATASET_CONFIG = {
+#     'type': 'cell',
 
-    'split': 'datasets/NuCLS/train_test_splits/fold_1_test.csv',
-    'train_split': 0.5,
-    'validation_split': 0.15,
-    'dataset_dir': 'datasets/NuCLS_histogram_matching/NuCLS_histogram_matching_64',
-    'groups': {
-        'tumor': 'tumor',
-        'fibroblast': 'stromal',
-        'vascular_endothelium': 'vascular_endothelium',
-        'macrophage': 'stromal',
-        'lymphocyte': 'stils',
-        'plasma_cell': 'stils',
-        'apoptotic_body': 'apoptotic_body'
-    },
-    'major_groups': ['tumor', 'stils']
-}'''
+#     'split': 'datasets/NuCLS/train_test_splits/fold_1_test.csv',
+#     'train_split': 0.5,
+#     'validation_split': 0.15,
+#     'dataset_dir': 'datasets/NuCLS_histogram_matching/NuCLS_histogram_matching_64',
+#     'groups': {
+#         'tumor': 'tumor',
+#         'fibroblast': 'stromal',
+#         'vascular_endothelium': 'vascular_endothelium',
+#         'macrophage': 'stromal',
+#         'lymphocyte': 'stils',
+#         'plasma_cell': 'stils',
+#         'apoptotic_body': 'apoptotic_body'
+#     },
+#     'major_groups': ['tumor', 'stils']
+# }
 
-# tissue classification
+# tissue classification - super classes
+# DATASET_CONFIG = {
+#     'type': 'tissue',
+
+#     'split_file_path': 'datasets/tissue_classification/fold_test.csv',
+#     'train_split': 0.5,
+#     'validation_split': 0.15,
+#     'dataset_dir': 'datasets/tissue_classification/dataset',
+#     'groups': {
+#         'TUMOR': 'tumor',
+#         'STROMA': 'stroma',
+#         'TILS': 'tils',
+#         'JUNK': 'junk',
+#         'WHITE': 'white'
+#     },
+#     'major_groups': ['tumor', 'stroma']
+# }
+
+# tissue classification - main classes (0.3 threshold)
 DATASET_CONFIG = {
     'type': 'tissue',
 
     'split_file_path': 'datasets/tissue_classification/fold_test.csv',
     'train_split': 0.5,
     'validation_split': 0.15,
-    'dataset_dir': 'datasets/tissue_classification/dataset',
+    'dataset_dir': 'datasets/tissue_classification/dataset_main_0.3',
     'groups': {
-        'TUMOR': 'tumor',
-        'STROMA': 'stroma',
-        'TILS': 'tils',
-        'JUNK': 'junk',
-        'WHITE': 'white'
+        'Tumor': 'tumor',
+        'WhiteSpace': 'white_space',
+        'NecroticDebris': 'necrotic_debris',
+        'TILsDense': 'tils',
+        'StromaNOS': 'stroma',
+        
+        'Blood': 'blood',
+        'BloodVessel': 'blood_vessel',
+        'PlasmaCellInfiltrate': 'plasma_cell_infiltrate'
     },
     'major_groups': ['tumor', 'stroma']
-    }
+}

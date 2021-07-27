@@ -77,9 +77,13 @@ def load_datasets():
 
 
 def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet,
-               image_shape=IMAGE_SHAPE, lr=LEARNING_RATE, epochs=EPOCHS,
-               projector_dim=PROJECTOR_DIM, evaluation=False,
+               image_shape=(224, 224, 3), lr=5e-3, epochs=30,
+               projector_dim=2048, evaluation=False,
                gpu_used=('GPU:0', 'GPU:1', 'GPU:2', 'GPU:3')):
+    
+    # DEBUG
+    print(model_type, num_classes, steps_per_epoch, cifar_resnet, image_shape, lr, epochs, projector_dim, evaluation)
+    
     strategy = tf.distribute.MirroredStrategy(gpu_used)
     print('Number of devices:', strategy.num_replicas_in_sync)
 
@@ -89,12 +93,13 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet,
         encoder_trainable = False if ('barlow' in model_type and 'fine_tuned' not in model_type) else True
         print('Encoder trainable:', encoder_trainable)
 
-        if not evaluation:
+        if evaluation:
             # Test time ==> no need to load pre-trained weights
             encoder_weights_path = None
         elif 'barlow' in model_type:
             model_name = 'encoder.h5' if cifar_resnet else 'resnet.h5'
             encoder_weights_path = os.path.join(PRETRAINED_DIR, model_name)
+            print('Loading encoder weights from:', encoder_weights_path)
         else:
             encoder_weights_path = None
 
@@ -127,7 +132,8 @@ def load_model(model_type, num_classes, steps_per_epoch, cifar_resnet,
         )
 
         optimizer = SGDW(learning_rate=lr_decay_fn, momentum=0.9, nesterov=False, weight_decay=1e-6)
-
+        
+        model.summary()
         model.compile(
             optimizer=optimizer,
             loss='categorical_crossentropy',
@@ -148,7 +154,17 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
     ds, ds_val, ds_test, steps, classes = load_datasets()
     steps_per_epoch, validation_steps, test_steps = steps
 
-    model = load_model(MODEL_TYPE, len(classes), steps_per_epoch, cifar_resnet=cifar_resnet)
+    model = load_model(
+        model_type=MODEL_TYPE, 
+        num_classes=len(classes), 
+        steps_per_epoch=steps_per_epoch, 
+        cifar_resnet=cifar_resnet,
+        image_shape=IMAGE_SHAPE,
+        lr=LEARNING_RATE,
+        epochs=EPOCHS,
+        projector_dim=PROJECTOR_DIM,
+        evaluation=False
+    )
 
     es = EarlyStopping(monitor='val_acc', mode='max', verbose=1, patience=PATIENCE)
     mc = ModelCheckpoint(
@@ -178,12 +194,19 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
 
 if __name__ == '__main__':
     MODEL_TYPE = ['barlow_fine_tuned', 'supervised'][0]
-    PRETRAINED_DIR = f'trained_models/encoders/encoder_resnet50_2048'
     PROJECTOR_DIM = 2048
     LEARNING_RATE = 5e-3
 
-    # DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_super'
+    
+    PRETRAINED_DIR = f'trained_models/encoders/encoder_resnet50_100_baseline'
+    ROOT_SAVE_DIR = 'trained_models/classifiers/resnet50_100_curve'
+    
+    DATASET_CONFIG['dataset_dir'] = 'datasets/tissue_classification/dataset_main_0.3'
     DATASET_CONFIG['split_file_path'] = 'datasets/tissue_classification/fold_test.csv'
-    for s in [0.2]:
+    
+    LEARNING_RATE = 0.5
+    for s in [0.01]: 
         DATASET_CONFIG['train_split'] = s
-        main(model_name=f'barlow_resnet50_{s}', cifar_resnet=False)
+
+        MODEL_TYPE = 'barlow_fine_tuned'
+        main(model_name=f'barlow_{s}', cifar_resnet=False)

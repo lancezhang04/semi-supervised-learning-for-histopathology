@@ -14,10 +14,11 @@ def get_encoder(input_shape=(224, 224, 3), weights=None):
     # Returns a ResNet50 encoder without the classification head + average pooling
     encoder = ResNet50V2(
         include_top=False,
-        weights=weights,
         input_shape=input_shape,
+        weights=weights,
         pooling='avg'
     )
+        
     return encoder
 
 

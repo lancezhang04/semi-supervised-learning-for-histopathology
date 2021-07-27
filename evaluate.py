@@ -44,7 +44,7 @@ def load_datagens():
         batch_size=BATCH_SIZE,
         random_seed=RANDOM_SEED,
         config=DATASET_CONFIG,
-        separate_evaluation_groups=False
+        separate_evaluation_groups=True
     )[0])
 
     return datagens, list(datagens[0].class_indices.keys())
@@ -52,7 +52,7 @@ def load_datagens():
 
 def load_classifier(num_classes):
     model = load_model(
-        model_type=MODEL_TYPE,
+        model_type='supervised',
         num_classes=num_classes,
         steps_per_epoch=1,  # Only used to configure lr scheduler
         cifar_resnet=cifar_resnet,
@@ -87,7 +87,7 @@ def create_conf_matrix(datagen, model, classes):
     heatmap(conf_matrix, annot=True)
     plt.ylabel('True Classes')
     plt.xlabel('Predicted Classes')
-    plt.savefig('confusion_matrix.png')
+    plt.savefig(os.path.join(visualization_save_dir, 'confusion_matrix.png'))
 
     # Calculate AUROC
     micro_auroc = roc_auc_score(all_labels, all_preds, average='micro')
@@ -96,6 +96,8 @@ def create_conf_matrix(datagen, model, classes):
 
 
 def main():
+    print('Evaluating model from:', SAVE_DIR)
+
     # Create training curves, early stop values, etc.
     os.makedirs(visualization_save_dir, exist_ok=True)
     es_stats = analyze_history(
@@ -124,12 +126,16 @@ def main():
 
 
 if __name__ == '__main__':
-    SAVE_DIR = ''
+    SAVE_DIR = 'trained_models/classifiers/supervised_resnet50_0.2'
     PROJECTOR_DIM = 2048
     BATCH_SIZE = 256
-    MODEL_TYPE = 'supervised'
-
+    
     visualization_save_dir = 'visualization'
     cifar_resnet = False
-
+    
+    SAVE_DIR = 'trained_models/classifiers/resnet50_100_lr/barlow_0.5'
     main()
+    
+#     for folder in os.listdir('trained_models/classifiers/resnet50_30_curve'):
+#         SAVE_DIR = os.path.join('trained_models/classifiers/resnet50_30_curve', folder)
+#         main()

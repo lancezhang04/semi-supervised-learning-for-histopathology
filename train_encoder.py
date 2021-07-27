@@ -179,11 +179,12 @@ if __name__ == '__main__':
     # Overwrite default values
     BATCH_SIZE = 256
     IMAGE_SHAPE = [224, 224, 3]
-    EPOCHS = 30
+    LEARNING_RATE_BASE = 1e-3
+    EPOCHS = 100
     ROOT_SAVE_DIR = 'trained_models/encoders'
     
     PROJECTOR_DIM = 2048
-    main(model_name='encoder_resnet50_2048', cifar_resnet=False)
+    main(model_name='encoder_resnet50_100_baseline', cifar_resnet=False)
 
 #     PROJECTOR_DIMENSIONALITY = 512
 #     main(model_name='encoder_512')
