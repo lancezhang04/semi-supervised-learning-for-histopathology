@@ -3,6 +3,7 @@ silence_tensorflow()
 
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping
+import tensorflow_addons as tfa
 import tensorflow as tf
 
 from utils.image_augmentation import get_blur_layer
@@ -130,7 +131,14 @@ def load_model(steps_per_epoch, cifar_resnet=True):
 
         # Load optimizer
         lr_decay_fn = get_decay_fn(LEARNING_RATE_BASE, EPOCHS, steps_per_epoch)
-        optimizer = tf.keras.optimizers.Adam(lr_decay_fn)
+
+        if use_lamb:
+            optimizer = tfa.optimizers.LAMB(
+                learning_rate=lr_decay_fn,
+                weight_decay_rate=1.5e-6
+            )
+        else:
+            optimizer = tf.keras.optimizers.Adam(lr_decay_fn)
 
         # Get model
         barlow_twins = BarlowTwins(
@@ -176,38 +184,15 @@ def main(suffix=None, model_name=None, cifar_resnet=True):
 
 
 if __name__ == '__main__':
+    use_lamb = True  # uses the LAMB optimizer instead of Adams
+
     # Overwrite default values
     BATCH_SIZE = 256
     IMAGE_SHAPE = [224, 224, 3]
-    LEARNING_RATE_BASE = 1e-3
+    LEARNING_RATE_BASE = 0.2
+    LEARNING_RATE_BASE = LEARNING_RATE_BASE * BATCH_SIZE / 256
     EPOCHS = 100
     ROOT_SAVE_DIR = 'trained_models/encoders'
-    
+
     PROJECTOR_DIM = 2048
-    main(model_name='encoder_resnet50_100_baseline', cifar_resnet=False)
-
-#     PROJECTOR_DIMENSIONALITY = 512
-#     main(model_name='encoder_512')
-
-#     PROJECTOR_DIMENSIONALITY = 2048
-#     main(model_name='encoder_2048')
-
-#     PROJECTOR_DIMENSIONALITY = 4096
-#     main(model_name='encoder_4096')
-
-#     PROJECTOR_DIMENSIONALITY = 8192
-#     main(model_name='encoder_8192')
-
-    # PREPROCESSING_CONFIG['color_jittering'] = 0
-    # main('no_color')
-    #
-    # PREPROCESSING_CONFIG['color_jittering'] = 0.8
-    # PREPROCESSING_CONFIG['gaussian_blurring_probability'] = [0, 0]
-    # main('no_blur')
-    #
-    # PREPROCESSING_CONFIG['color_jittering'] = 0
-    # main('flip_only')
-    #
-    # PREPROCESSING_CONFIG['horizontal_flip'] = False
-    # PREPROCESSING_CONFIG['vertical_flip'] = False
-    # main('no_aug')
+    main(model_name='encoder_resnet50_100_0.2', cifar_resnet=False)
