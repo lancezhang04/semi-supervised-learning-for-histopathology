@@ -1,0 +1,39 @@
+# INITIAL SETTINGS
+random_seed       : 42
+
+# Training parameters
+epochs            : 30
+batch_size        : 256
+patience          : ~
+prefetch          : 8
+gpu_used          : ['GPU:0', 'GPU:1', 'GPU:2', 'GPU:3']
+
+lr_base           : 0.2
+weight_decay      : 1.5e-6
+use_lamb          : True
+
+root_save_dir     : 'trained_models/encoders'
+
+# Model parameters
+cifar_resnet      : False
+projector_dim     : 2048
+filter_size       : 23
+
+# Dataset parameters
+image_shape       : [224, 224, 3]
+dataset_config:
+  split_file_path   : 'datasets/tissue_classification/fold_test.csv'
+  dataset_dir       : 'datasets/tissue_classification/dataset_encoder'
+
+# Preprocessing parameters
+preprocessing_config:
+  horizontal_flip         : True
+  vertical_flip           : True
+  color_jitter            : 0.8
+  brightness_int          : 0.4
+  contrast_int            : 0.4
+  saturation_int          : 0.2
+  hue_int                 : 0.1
+  color_drop_prob         : 0.2
+  blur_prob               : [1, 0.1]
+  solarization_prob       : [0, 0.2]

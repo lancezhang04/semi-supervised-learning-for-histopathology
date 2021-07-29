@@ -1,4 +1,10 @@
-from silence_tensorflow import silence_tensorflow
+import numpy as np
+import pickle
+import yaml
+import json
+import os
+
+from silence_tensorflow import silence_tensorflow;
 silence_tensorflow()
 
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -14,29 +20,11 @@ from utils import image_augmentation
 from utils.train.lr_scheduler import get_decay_fn
 from utils.models import resnet_cifar, resnet
 
-import numpy as np
-import pickle
-import json
-import os
 
-# Default configuration is stored in here
-from config.encoder_default_config import *
-np.random.seed(RANDOM_SEED)
-tf.random.set_seed(RANDOM_SEED)
-
-
-def configure_saving(suffix=None, model_name=None):
-    # Format model name
-    if model_name is None:
-        dataset_type = 'tissue' if 'tissue' in DATASET_CONFIG['dataset_dir'] else 'cell'
-        model_name = f'encoder_{dataset_type}_{IMAGE_SHAPE[0]}_{PROJECTOR_DIM}_' + \
-                     f'{BATCH_SIZE}_{EPOCHS}_{LEARNING_RATE_BASE}'
-        if suffix is not None:
-            suffix = '_' + suffix if suffix[0] != '_' else suffix
-            model_name += suffix
+def configure_saving(model_name):
     print('Model name:', model_name)
 
-    save_dir = os.path.join(ROOT_SAVE_DIR, model_name)
+    save_dir = os.path.join(config['root_save_dir'], model_name)
 
     try:
         os.makedirs(save_dir, exist_ok=False)
@@ -46,96 +34,81 @@ def configure_saving(suffix=None, model_name=None):
             raise ValueError
 
     with open(os.path.join(save_dir, 'preprocessing_config.json'), 'w') as file:
-        json.dump(PREPROCESSING_CONFIG, file, indent=4)
+        json.dump(config['preprocessing_config'], file, indent=4)
 
     with open(os.path.join(save_dir, 'dataset_config.json'), 'w') as file:
-        json.dump(DATASET_CONFIG, file, indent=4)
+        json.dump(config['dataset_config'], file, indent=4)
 
     return save_dir
 
 
 def load_dataset():
     # Only using training set (and no validation set)
-    df = get_dataset_df(DATASET_CONFIG, RANDOM_SEED, mode='encoder')
+    df = get_dataset_df(config['dataset_config'], config['random_seed'], mode='encoder')
     # Shuffle the dataset
     df = df.sample(frac=1).reset_index(drop=True)
 
     print('Dataset length:', len(df))
+    datasets = []
 
-    datagen_a = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
-        df[df['split'] == 'train'],
-        shuffle=False,
-        seed=RANDOM_SEED,
-        target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
-    )
+    # Generate one dataset for each view
+    for i in range(2):
+        datagen = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
+            df[df['split'] == 'train'],
+            shuffle=False,
+            seed=config['random_seed'],
+            target_size=config['image_shape'][:2], batch_size=config['batch_size']
+        )
+        ds = tf.data.Dataset.from_generator(
+            lambda: [datagen.next()[0]],
+            output_types='float32', output_shapes=[None] * 4
+        )
+        ds = ds.map(
+            lambda x: image_augmentation.augment(x, view=i, config=config['preprocessing_config']),
+            num_parallel_calls=tf.data.experimental.AUTOTUNE
+        )
+        ds = ds.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        datasets.append(ds)
 
-    datagen_b = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
-        df[df['split'] == 'train'],
-        shuffle=False,
-        seed=RANDOM_SEED,
-        target_size=IMAGE_SHAPE[:2], batch_size=BATCH_SIZE
-    )
-
-    ds_a = tf.data.Dataset.from_generator(lambda: [datagen_a.next()[0]], output_types='float32',
-                                          output_shapes=[None] * 4)
-    ds_a = ds_a.map(
-        lambda x: image_augmentation.augment(x, 0, config=PREPROCESSING_CONFIG),
-        num_parallel_calls=tf.data.experimental.AUTOTUNE
-    )
-    ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-    ds_b = tf.data.Dataset.from_generator(lambda: [datagen_b.next()[0]], output_types='float32',
-                                          output_shapes=[None] * 4)
-    ds_b = ds_b.map(
-        lambda x: image_augmentation.augment(x, 1, config=PREPROCESSING_CONFIG),
-        num_parallel_calls=tf.data.experimental.AUTOTUNE
-    )
-    ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
-
-    dataset = tf.data.Dataset.zip((ds_a, ds_b))
-    # dataset = dataset.batch(BATCH_SIZE)
-    dataset = dataset.prefetch(PREFETCH)
+    # Combine the two datasets
+    dataset = tf.data.Dataset.zip(datasets)
+    dataset = dataset.prefetch(config['prefetch'])
 
     # This creates a generator from the dataset
     def data_generator():
         while True:
             yield next(iter(dataset))
 
-    steps_per_epoch = len(datagen_a)
+    steps_per_epoch = len(datasets[0])
     print('Steps per epoch:', steps_per_epoch)
 
     return data_generator(), steps_per_epoch
 
 
-def load_model(steps_per_epoch, cifar_resnet=True):
-    strategy = tf.distribute.MirroredStrategy()
+def load_model():
+    strategy = tf.distribute.MirroredStrategy(config['gpu_used'])
     print('Number of devices:', strategy.num_replicas_in_sync)
 
     with strategy.scope():
-        if cifar_resnet:
+        if config['cifar_resnet']:
             resnet_enc = resnet_cifar.get_network(
                 n=2,
-                hidden_dim=PROJECTOR_DIM,
+                hidden_dim=config['projector_dim'],
                 use_pred=False,
                 return_before_head=False,
-                input_shape=IMAGE_SHAPE
-            )
-            if MODEL_WEIGHTS:
-                resnet_enc.load_weights(MODEL_WEIGHTS)
-                if VERBOSE:
-                    print('Using (pretrained) model weights')
+                input_shape=config['image_shape'])
         else:
-            resnet_enc = resnet.get_barlow_encoder(IMAGE_SHAPE, PROJECTOR_DIM, hidden_layers=3)
+            resnet_enc = resnet.get_barlow_encoder(config['image_shape'], config['projector_dim'], hidden_layers=3)
 
-        blur_layer = get_blur_layer(FILTER_SIZE, IMAGE_SHAPE)
+        blur_layer = get_blur_layer(config['filter_size'], config['image_shape'])
 
         # Load optimizer
-        lr_decay_fn = get_decay_fn(LEARNING_RATE_BASE, EPOCHS, steps_per_epoch)
+        lr_decay_fn = get_decay_fn(config['lr_base'], config['epochs'], config['steps_per_epoch'])
 
-        if use_lamb:
+        if config['use_lamb']:
             optimizer = tfa.optimizers.LAMB(
                 learning_rate=lr_decay_fn,
-                weight_decay_rate=1.5e-6
+                weight_decay_rate=config['weight_decay']
             )
         else:
             optimizer = tf.keras.optimizers.Adam(lr_decay_fn)
@@ -143,8 +116,8 @@ def load_model(steps_per_epoch, cifar_resnet=True):
         # Get model
         barlow_twins = BarlowTwins(
             resnet_enc, blur_layer=blur_layer,
-            preprocessing_config=PREPROCESSING_CONFIG,
-            batch_size=BATCH_SIZE
+            preprocessing_config=config['preprocessing_config'],
+            batch_size=config['batch_size']
         )
         barlow_twins.compile(optimizer=optimizer)
 
@@ -157,42 +130,47 @@ def load_model(steps_per_epoch, cifar_resnet=True):
     return barlow_twins, resnet_enc
 
 
-def main(suffix=None, model_name=None, cifar_resnet=True):
-    save_dir = configure_saving(suffix, model_name)
+def main(model_name=None):
+    save_dir = configure_saving(model_name)
     print('Saving at:', save_dir)
 
     dataset, steps_per_epoch = load_dataset()
-    barlow_twins, resnet_enc = load_model(steps_per_epoch, cifar_resnet=cifar_resnet)
+    config['steps_per_epoch'] = steps_per_epoch
+    barlow_twins, resnet_enc = load_model()
 
-    es = EarlyStopping(monitor='loss', mode='min', verbose=1, patience=PATIENCE)
+    callbacks = []
+    if config['patience'] is not None:
+        es = EarlyStopping(monitor='loss', mode='min', verbose=1, patience=config['patience'])
+        callbacks.append(es)
     mc = EncoderCheckpoint(resnet_enc, save_dir)
+    callbacks.append(mc)
 
     print('\nSteps per epoch:', steps_per_epoch)
     history = barlow_twins.fit(
         dataset,
-        epochs=EPOCHS,
+        epochs=config['epochs'],
         steps_per_epoch=steps_per_epoch,
-        callbacks=[es, mc]
+        callbacks=callbacks
     )
 
     # Save training history
     with open(os.path.join(save_dir, 'history.pickle'), 'wb') as file:
         pickle.dump(history.history, file)
-        
+
     # Save weights for the ResNet backbone
     resnet_enc.layers[1].save_weights(os.path.join(save_dir, 'resnet.h5'))
 
 
 if __name__ == '__main__':
-    use_lamb = True  # uses the LAMB optimizer instead of Adams
+    with open('config/encoder_config.yaml') as file:
+        config = yaml.safe_load(file)
+        print(config)
 
-    # Overwrite default values
-    BATCH_SIZE = 256
-    IMAGE_SHAPE = [224, 224, 3]
-    LEARNING_RATE_BASE = 0.2
-    LEARNING_RATE_BASE = LEARNING_RATE_BASE * BATCH_SIZE / 256
-    EPOCHS = 100
-    ROOT_SAVE_DIR = 'trained_models/encoders'
+    # Adjust learning rate according to the batch size
+    config['lr_base'] = config['lr_base'] * config['batch_size'] / 256
+    config['epochs'] = 100
 
-    PROJECTOR_DIM = 2048
-    main(model_name='encoder_resnet50_100_0.2', cifar_resnet=False)
+    np.random.seed(config['random_seed'])
+    tf.random.set_seed(config['random_seed'])
+
+    main(model_name='encoder_resnet50_100_0.2')
