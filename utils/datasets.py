@@ -117,10 +117,11 @@ def get_generators(splits, image_shape, batch_size,
 
 
 def create_classifier_dataset(datagen, image_shape, num_classes):
+    # Wraps a data generator with tf.Dataset
     def generator():
         while True:
-            X, y = datagen.next()
-            yield X[0], y[0]
+            x, y = datagen.next()
+            yield x[0], y[0]
     return tf.data.Dataset.from_generator(
         generator,
         output_types=('float32', 'float32'),

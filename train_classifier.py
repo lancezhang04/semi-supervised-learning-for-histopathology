@@ -62,15 +62,15 @@ def load_datasets():
         print('Using class weights:', class_weight)
 
     # Load datasets
-    datasets = []
-    steps = []
+    datasets, steps = [], []
 
     for gen in [datagen, datagen_val, datagen_test]:
-        steps.append(len(gen) // config['batch_size'])
-
         ds = create_classifier_dataset(gen, config['image_shape'], len(classes))
         ds = ds.batch(config['batch_size'])
         ds = ds.prefetch(config['prefetch'])
+
+        # Keep track of steps per epoch for each generator
+        steps.append(len(gen) // config['batch_size'])
         datasets.append(ds)
 
     return datasets, steps, classes, class_weight
@@ -107,7 +107,7 @@ def load_model(config, evaluation=False):
                 image_shape=config['image_shape']
             )
         else:
-            # Updated (larger) version of the encoder (ResNet50v2)
+            # Updated (larger) version of the encoder (ResNet50v2), ~20M parameters
             model = resnet.get_classifier(
                 num_classes=config['num_classes'],
                 input_shape=config['image_shape'],
