@@ -69,24 +69,29 @@ def augment(imgs: tf.Tensor, view, config) -> tf.Tensor:
     for i in range(len(imgs)):
         x = imgs[i]
 
-        if tf.random.uniform(shape=[]) < config['color_jittering']:
+        if tf.random.uniform(shape=[]) < config['color_drop_prob']:
+            x = tf.image.rgb_to_grayscale(x)
+            x = tf.concat([x] * 3, axis=-1)  # restore to three channels
+
+        if tf.random.uniform(shape=[]) < config['color_jitter']:
             funcs = [
-                lambda: tf.image.random_hue(x, config['hue_adjustment_max_intensity']),
-                lambda: tf.image.random_saturation(x, 1 - config['hue_adjustment_max_intensity'],
-                                                   1 + config['hue_adjustment_max_intensity']),
-                lambda: tf.image.random_brightness(x, config['brightness_adjustment_max_intensity']),
-                lambda: tf.image.random_contrast(x, 1 - config['contrast_adjustment_max_intensity'],
-                                                 1 + config['contrast_adjustment_max_intensity'])
+                lambda: tf.image.random_hue(x, config['hue_int']),
+                lambda: tf.image.random_saturation(x, 1 - config['saturation_int'],
+                                                   1 + config['saturation_int']),
+                lambda: tf.image.random_brightness(x, config['brightness_int']),
+                lambda: tf.image.random_contrast(x, 1 - config['contrast_int'],
+                                                 1 + config['contrast_int'])
             ]
 
+            # Apply color jitter transformations in random order
             seq = tf.random.shuffle([i for i in range(len(funcs))])
-            for i in seq:
+            for j in seq:
                 # Really weird implementation: cannot index with `i` directly since it is a Tensor
-                for j in range(len(funcs)):
-                    if i == j:
-                        x = funcs[j]()
+                for k in range(len(funcs)):
+                    if j == k:
+                        x = funcs[k]()
 
-        if tf.random.uniform(shape=[]) < config['solarization_probability'][view]:
+        if tf.random.uniform(shape=[]) < config['solarization_prob'][view]:
             x = tf.where(x < 0.5, x, 1 - x)
 
         imgs_aug = imgs_aug.write(imgs_aug.size(), x)

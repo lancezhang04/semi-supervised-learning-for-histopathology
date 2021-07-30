@@ -3,7 +3,7 @@ import yaml
 import json
 import os
 
-from silence_tensorflow import silence_tensorflow;
+from silence_tensorflow import silence_tensorflow
 silence_tensorflow()
 
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -33,7 +33,7 @@ def configure_saving(model_name):
             raise ValueError
 
     with open(os.path.join(save_dir, 'config.json'), 'w') as file:
-        json.dump(config['config'], file, indent=4)
+        json.dump(config, file, indent=4)
 
     return save_dir
 
@@ -64,11 +64,12 @@ def load_dataset():
             lambda x: image_augmentation.augment(x, view=i, config=config['preprocessing_config']),
             num_parallel_calls=tf.data.experimental.AUTOTUNE
         )
+        # Some tf image functions return values that are not in the range of [0, 1]
         ds = ds.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
         datasets.append(ds)
 
-    # Combine the two datasets
-    dataset = tf.data.Dataset.zip(datasets)
+    # Combine the two datasets, input must be tuple
+    dataset = tf.data.Dataset.zip(tuple(datasets))
     dataset = dataset.prefetch(config['prefetch'])
 
     # This creates a generator from the dataset
@@ -161,11 +162,18 @@ def main(model_name=None):
 if __name__ == '__main__':
     with open('config/encoder_config.yaml') as file:
         config = yaml.safe_load(file)
-        print(config)
+    for k, v in config.items():
+        print(k.ljust(50), v)
+    print()
 
     # Adjust learning rate according to the batch size
     config['lr_base'] = config['lr_base'] * config['batch_size'] / 256
     config['epochs'] = 100
+
+    # For running on local machine
+    config['gpu_used'] = None
+    config['batch_size'] = 32
+    config['image_shape'] = (32, 32, 3)
 
     np.random.seed(config['random_seed'])
     tf.random.set_seed(config['random_seed'])

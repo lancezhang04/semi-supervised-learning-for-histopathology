@@ -102,6 +102,8 @@ def main():
     print('At the early stop epochs:', es_stats)
 
     # Evaluate classifier on test set
+    dataset_config['train_split'] = config['train_split']
+    dataset_config['validation_split'] = config['validation_split']
     datagens, classes = load_datagens()
 
     num_classes = len(classes)
@@ -131,11 +133,13 @@ if __name__ == '__main__':
     np.random.seed(config['random_seed'])
     tf.random.set_seed(config['random_seed'])
 
+    # For training on local machine
+    config['dataset_type'] = 'tissue_5_0.5'
     dataset_config = DATASETS_CONFIG[config['dataset_type']]
 
     # Where the generated plots should be saved
     visualization_save_dir = 'visualization'
 
     # Where the model is saved
-    save_dir = 'trained_models/classifiers/resnet50_100_lr/barlow_0.5'
+    save_dir = 'trained_models/classifiers/test_classifier'
     main()

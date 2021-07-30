@@ -8,7 +8,7 @@ class BarlowTwins(tf.keras.Model):
         self.encoder = encoder
         self.blur_layer = blur_layer
 
-        self.blur_probabilities = preprocessing_config['gaussian_blurring_probability']
+        self.blur_probabilities = preprocessing_config['blur_prob']
         self.batch_size = batch_size
         self.lambd = lambd
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')

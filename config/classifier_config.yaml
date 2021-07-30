@@ -8,7 +8,7 @@ patience          : ~
 prefetch          : 8
 gpu_used          : ['GPU:0', 'GPU:1', 'GPU:2', 'GPU:3']
 
-classifier_lr     : 0.5
+head_lr           : 0.5
 encoder_lr        : 0.002
 class_weight      : False
 
