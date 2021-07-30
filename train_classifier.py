@@ -9,9 +9,7 @@ import yaml
 
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
-from tensorflow.keras.layers import Input, Dense
 from tensorflow_addons.optimizers import SGDW, MultiOptimizer
-from tensorflow.keras.models import Model
 import tensorflow as tf
 
 from utils.datasets import get_generators, create_classifier_dataset
@@ -44,8 +42,9 @@ def load_datasets():
     # Load data generators
     datagen, datagen_val, datagen_test = get_generators(
         ['train', 'val', 'test'],
-        config['image_shape'], 1,
-        config['random_seed'],
+        config['image_shape'],
+        batch_size=1,  # batched later
+        random_seed=config['random_seed'],
         dataset_config=dataset_config
     )
     classes = list(datagen.class_indices.keys())

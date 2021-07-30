@@ -1,0 +1,18 @@
+# INITIAL SETTINGS
+random_seed       : 42
+
+# Training parameters
+epochs            : 30
+batch_size        : 256
+patience          : ~
+prefetch          : 8
+gpu_used          : ['GPU:0', 'GPU:1', 'GPU:2', 'GPU:3']
+
+# Dataset parameters
+image_shape       : [224, 224, 3]
+dataset_config:
+  split_file_path   : 'datasets/tissue_classification/fold_test.csv'
+  dataset_dir       : 'datasets/tissue_classification/dataset_encoder'
+
+# Model parameters
+latent_dim        : 64

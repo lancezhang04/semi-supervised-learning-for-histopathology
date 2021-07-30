@@ -95,7 +95,7 @@ def get_generators(splits, image_shape, batch_size,
     generators = []
     for split in splits:
         if not separate_evaluation_groups:
-            datagen = ImageDataGenerator().flow_from_dataframe(
+            datagen = ImageDataGenerator(rescale=1. / 255).flow_from_dataframe(
                 df[df['split'] == split], seed=random_seed,
                 target_size=image_shape[:2], batch_size=batch_size,
                 y_col=y_col, shuffle=shuffle
@@ -106,7 +106,7 @@ def get_generators(splits, image_shape, batch_size,
             for evaluation_group in ['minor', 'major']:
                 print(evaluation_group + ':', np.unique(df[df['evaluation'] == evaluation_group]['class']), end=' ')
                 
-                datagen = ImageDataGenerator().flow_from_dataframe(
+                datagen = ImageDataGenerator(rescale=1. / 255).flow_from_dataframe(
                     df[(df['split'] == split) & (df['evaluation'] == evaluation_group)], seed=random_seed,
                     target_size=image_shape[:2], batch_size=batch_size, y_col=y_col,
                     classes=list(np.unique(df['class'])), shuffle=shuffle

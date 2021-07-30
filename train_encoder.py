@@ -1,5 +1,4 @@
 import numpy as np
-import pickle
 import yaml
 import json
 import os
@@ -33,11 +32,8 @@ def configure_saving(model_name):
         if input_ != 'Y':
             raise ValueError
 
-    with open(os.path.join(save_dir, 'preprocessing_config.json'), 'w') as file:
-        json.dump(config['preprocessing_config'], file, indent=4)
-
-    with open(os.path.join(save_dir, 'dataset_config.json'), 'w') as file:
-        json.dump(config['dataset_config'], file, indent=4)
+    with open(os.path.join(save_dir, 'config.json'), 'w') as file:
+        json.dump(config['config'], file, indent=4)
 
     return save_dir
 
@@ -45,7 +41,7 @@ def configure_saving(model_name):
 def load_dataset():
     # Only using training set (and no validation set)
     df = get_dataset_df(config['dataset_config'], config['random_seed'], mode='encoder')
-    # Shuffle the dataset
+    # Shuffle the dataset (NumPy random seed)
     df = df.sample(frac=1).reset_index(drop=True)
 
     print('Dataset length:', len(df))
@@ -53,11 +49,12 @@ def load_dataset():
 
     # Generate one dataset for each view
     for i in range(2):
-        datagen = ImageDataGenerator(rescale=1. / 225).flow_from_dataframe(
+        datagen = ImageDataGenerator(rescale=1. / 255).flow_from_dataframe(
             df[df['split'] == 'train'],
             shuffle=False,
             seed=config['random_seed'],
-            target_size=config['image_shape'][:2], batch_size=config['batch_size']
+            target_size=config['image_shape'][:2],
+            batch_size=config['batch_size']
         )
         ds = tf.data.Dataset.from_generator(
             lambda: [datagen.next()[0]],
@@ -75,14 +72,15 @@ def load_dataset():
     dataset = dataset.prefetch(config['prefetch'])
 
     # This creates a generator from the dataset
-    def data_generator():
+    def get_generator():
         while True:
             yield next(iter(dataset))
 
-    steps_per_epoch = len(datasets[0])
+    steps_per_epoch = len(datagen)
+    config['steps_per_epoch'] = steps_per_epoch
     print('Steps per epoch:', steps_per_epoch)
 
-    return data_generator(), steps_per_epoch
+    return get_generator()
 
 
 def load_model():
@@ -134,8 +132,7 @@ def main(model_name=None):
     save_dir = configure_saving(model_name)
     print('Saving at:', save_dir)
 
-    dataset, steps_per_epoch = load_dataset()
-    config['steps_per_epoch'] = steps_per_epoch
+    dataset = load_dataset()
     barlow_twins, resnet_enc = load_model()
 
     callbacks = []
@@ -145,17 +142,17 @@ def main(model_name=None):
     mc = EncoderCheckpoint(resnet_enc, save_dir)
     callbacks.append(mc)
 
-    print('\nSteps per epoch:', steps_per_epoch)
+    print('\nSteps per epoch:', config['steps_per_epoch'])
     history = barlow_twins.fit(
         dataset,
         epochs=config['epochs'],
-        steps_per_epoch=steps_per_epoch,
+        steps_per_epoch=config['steps_per_epoch'],
         callbacks=callbacks
     )
 
     # Save training history
-    with open(os.path.join(save_dir, 'history.pickle'), 'wb') as file:
-        pickle.dump(history.history, file)
+    with open(os.path.join(save_dir, 'history.json'), 'wb') as file:
+        json.dump(history.history, file)
 
     # Save weights for the ResNet backbone
     resnet_enc.layers[1].save_weights(os.path.join(save_dir, 'resnet.h5'))

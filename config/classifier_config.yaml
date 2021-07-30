@@ -25,3 +25,7 @@ image_shape       : [224, 224, 3]
 train_split       : 0.1
 validation_split  : 0.15
 dataset_type      : 'tissue_8_0.3'
+
+# Assigned in script
+steps_per_epoch   : ~
+num_classes       : ~
