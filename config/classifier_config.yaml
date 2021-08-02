@@ -9,8 +9,8 @@ prefetch          : 8
 gpu_used          : ['GPU:0', 'GPU:1', 'GPU:2', 'GPU:3']
 
 head_lr           : 0.5
-encoder_lr        : 0.002
-class_weight      : False
+encoder_lr        : 0.5
+use_class_weight  : False
 
 root_save_dir     : 'trained_models/classifiers'
 

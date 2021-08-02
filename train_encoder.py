@@ -162,20 +162,21 @@ def main(model_name=None):
 if __name__ == '__main__':
     with open('config/encoder_config.yaml') as file:
         config = yaml.safe_load(file)
-    for k, v in config.items():
-        print(k.ljust(50), v)
-    print()
-
+    
     # Adjust learning rate according to the batch size
     config['lr_base'] = config['lr_base'] * config['batch_size'] / 256
     config['epochs'] = 100
 
     # For running on local machine
     config['gpu_used'] = None
-    config['batch_size'] = 32
-    config['image_shape'] = (32, 32, 3)
+    config['batch_size'] = 256
+    config['image_shape'] = (224, 224, 3)
 
     np.random.seed(config['random_seed'])
     tf.random.set_seed(config['random_seed'])
+    
+    for k, v in config.items():
+        print(k.ljust(30), v)
+    print()
 
-    main(model_name='encoder_resnet50_100_0.2')
+    main(model_name='encoder_resnet50_100_0.2_lamb')

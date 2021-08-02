@@ -151,8 +151,15 @@ def load_model(config, evaluation=False):
 
 
 def main(model_name=None):
+    for k, v in config.items():
+        print(k.ljust(50), v)
+    print()
+
     save_dir = configure_saving(model_name)
     print('Saving at:', save_dir)
+
+    dataset_config['train_split'] = config['train_split']
+    dataset_config['validation_split'] = config['validation_split']
 
     datasets, steps, classes, class_weight = load_datasets()
     steps_per_epoch, validation_steps, test_steps = steps
@@ -197,11 +204,13 @@ def main(model_name=None):
 if __name__ == '__main__':
     with open('config/classifier_config.yaml') as file:
         config = yaml.safe_load(file)
-        print(config)
 
     dataset_config = DATASETS_CONFIG[config['dataset_type']]
 
     np.random.seed(config['random_seed'])
     tf.random.set_seed(config['random_seed'])
+    
+    config['model_type'] = 'barlow_fine_tuned'
+    config['pretrained_dir'] = 'trained_models/encoders/encoder_resnet50_100_baseline'
 
     main(model_name=f'{config["model_type"]}_{config["head_lr"]}_{config["encoder_lr"]}')
