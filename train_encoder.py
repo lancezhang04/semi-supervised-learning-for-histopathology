@@ -12,12 +12,13 @@ import tensorflow_addons as tfa
 import tensorflow as tf
 
 from utils.image_augmentation import get_blur_layer
-from utils.train.callbacks import EncoderCheckpoint
+from utils.train.callbacks import EncoderCheckpoint, BTDebug
 from utils.models.barlow_twins import BarlowTwins
 from utils.datasets import get_dataset_df
 from utils import image_augmentation
 from utils.train.lr_scheduler import get_decay_fn
 from utils.models import resnet_cifar, resnet
+from utils.misc import log_config
 
 
 def configure_saving(model_name):
@@ -45,9 +46,9 @@ def load_dataset():
     df = df.sample(frac=1).reset_index(drop=True)
 
     print('Dataset length:', len(df))
-    datasets = []
 
     # Generate one dataset for each view
+    datagens = []
     for i in range(2):
         datagen = ImageDataGenerator(rescale=1. / 255).flow_from_dataframe(
             df[df['split'] == 'train'],
@@ -56,17 +57,38 @@ def load_dataset():
             target_size=config['image_shape'][:2],
             batch_size=config['batch_size']
         )
-        ds = tf.data.Dataset.from_generator(
-            lambda: [datagen.next()[0]],
-            output_types='float32', output_shapes=[None] * 4
-        )
-        ds = ds.map(
-            lambda x: image_augmentation.augment(x, view=i, config=config['preprocessing_config']),
-            num_parallel_calls=tf.data.experimental.AUTOTUNE
-        )
-        # Some tf image functions return values that are not in the range of [0, 1]
-        ds = ds.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        datasets.append(ds)
+        datagens.append(datagen)
+    
+    # There seems to be some issues with creating the datasets in a loop, which results in the two
+    # datasets referencing the same ImageDataGenerator, so I decided to just leave it be
+    ds_a = tf.data.Dataset.from_generator(
+        lambda: [datagens[0].next()[0]],
+        output_types='float32', output_shapes=[None] * 4
+    )
+    ds_a = ds_a.map(
+        lambda x: image_augmentation.augment(
+            x, view=0, 
+            config=config['preprocessing_config']
+        ),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE
+    )
+    # Some tf image functions return values that are not in the range of [0, 1]
+    ds_a = ds_a.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    ds_b = tf.data.Dataset.from_generator(
+        lambda: [datagens[1].next()[0]],
+        output_types='float32', output_shapes=[None] * 4
+    )
+    ds_b = ds_b.map(
+        lambda x: image_augmentation.augment(
+            x, view=1, 
+            config=config['preprocessing_config']
+        ),
+        num_parallel_calls=tf.data.experimental.AUTOTUNE
+    )
+    ds_b = ds_b.map(lambda x: tf.clip_by_value(x, 0, 1), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        
+    datasets = [ds_a, ds_b]
 
     # Combine the two datasets, input must be tuple
     dataset = tf.data.Dataset.zip(tuple(datasets))
@@ -81,7 +103,7 @@ def load_dataset():
     config['steps_per_epoch'] = steps_per_epoch
     print('Steps per epoch:', steps_per_epoch)
 
-    return get_generator()
+    return get_generator(), datagens
 
 
 def load_model():
@@ -133,15 +155,19 @@ def main(model_name=None):
     save_dir = configure_saving(model_name)
     print('Saving at:', save_dir)
 
-    dataset = load_dataset()
+    dataset, datagens = load_dataset()
     barlow_twins, resnet_enc = load_model()
 
     callbacks = []
     if config['patience'] is not None:
         es = EarlyStopping(monitor='loss', mode='min', verbose=1, patience=config['patience'])
         callbacks.append(es)
+        
     mc = EncoderCheckpoint(resnet_enc, save_dir)
     callbacks.append(mc)
+    
+    debug = BTDebug(datagens)
+    callbacks.append(debug)
 
     print('\nSteps per epoch:', config['steps_per_epoch'])
     history = barlow_twins.fit(
@@ -155,7 +181,8 @@ def main(model_name=None):
     with open(os.path.join(save_dir, 'history.json'), 'wb') as file:
         json.dump(history.history, file)
 
-    # Save weights for the ResNet backbone
+    # Save weights for the best ResNet backbone
+    resnet_enc.load_weights(os.path.join(save_dir, 'encoder.h5'))
     resnet_enc.layers[1].save_weights(os.path.join(save_dir, 'resnet.h5'))
 
 
@@ -168,15 +195,12 @@ if __name__ == '__main__':
     config['epochs'] = 100
 
     # For running on local machine
-    config['gpu_used'] = None
-    config['batch_size'] = 256
-    config['image_shape'] = (224, 224, 3)
+#     config['gpu_used'] = None
+#     config['batch_size'] = 256
+#     config['image_shape'] = (224, 224, 3)
 
     np.random.seed(config['random_seed'])
     tf.random.set_seed(config['random_seed'])
-    
-    for k, v in config.items():
-        print(k.ljust(30), v)
-    print()
 
-    main(model_name='encoder_resnet50_100_0.2_lamb')
+    log_config(config)
+    main(model_name='encoder_resnet50_lamb')

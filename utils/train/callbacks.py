@@ -1,7 +1,54 @@
 from tensorflow.keras.callbacks import Callback
 import tensorflow.keras.backend as K
+import tensorflow as tf
 import matplotlib.pyplot as plt
+import numpy as np
 import os
+
+
+class BTDebug(Callback):
+    """
+    This callback checks that the batch_index for the two datagenerators are the same
+    at the end of each epoch to make sure that matching images are fed to the encoder.
+    
+    This has been a issue multiple times in the course of the project so I decided to
+    just make a custom callback to monitor it
+    """
+    def __init__(self, datagens):
+        super().__init__()
+        self.datagens = datagens
+        
+    def on_epoch_end(self, epoch, logs=None):
+        assert self.datagens[0].batch_index == self.datagens[1].batch_index
+
+
+class VAECheckpoint(Callback):
+    def __init__(self, model, model_save_dir, latent_dim, test_batch):
+        super().__init__()
+        self.save_dir = os.path.join(model_save_dir, 'visualizations')
+        os.makedirs(self.save_dir, exist_ok=True)
+        
+        self.eps = tf.random.normal(shape=(10, latent_dim))
+        self.model = model
+        self.test_batch = test_batch
+        
+    def on_epoch_end(self, epoch, logs=None):
+        plt.figure(figsize=(20, 40))
+        plt.axis('off')
+        
+        plt.imshow(np.vstack([
+            self.stack_imgs(self.test_batch),
+            self.stack_imgs(self.model(self.test_batch)),
+            self.stack_imgs(self.model.sample(self.eps)),
+        ]))
+        
+        plt.savefig(os.path.join(self.save_dir, f'epoch_{epoch}.png'))
+       
+    @staticmethod
+    def stack_imgs(imgs):
+        return np.vstack([
+            np.hstack(np.array(imgs[i * 5:(i + 1) * 5])) for i in range(2)
+        ])
 
 
 class EncoderCheckpoint(Callback):

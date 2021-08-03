@@ -36,6 +36,8 @@ class CVAE(tf.keras.Model):
 
         self.encoder = self.build_encoder()
         self.decoder = self.build_decoder()
+        
+        self.loss_tracker = tf.keras.metrics.Mean(name='loss')
 
     @tf.function
     def sample(self, eps=None):
@@ -50,7 +52,7 @@ class CVAE(tf.keras.Model):
     @staticmethod
     def reparameterize(mean, logvar):
         # Sample vector from distribution
-        eps = tf.random.normal(shape=mean.shape)
+        eps = tf.random.normal(shape=tf.shape(mean))
         return eps * tf.exp(logvar * .5) + mean
 
     def decode(self, z, apply_sigmoid=False):
@@ -83,10 +85,12 @@ class CVAE(tf.keras.Model):
         layers = [
             input_,
             tf.keras.Sequential([
-                tf.keras.layers.Dense(8192),
+                # The impact of this Dense layer needs to be investigated further lol
+                tf.keras.layers.Dense(12544),
                 tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.LeakyReLU(),
-                tf.keras.layers.Reshape((4, 4, 512))
+                # For an input shape of (224, 224, 3)
+                tf.keras.layers.Reshape((7, 7, 256))
             ], name='projector')
         ]
 
@@ -97,37 +101,47 @@ class CVAE(tf.keras.Model):
                                              padding='same', name='conv_output'))
 
         return tf.keras.Sequential(layers)
+    
+    def call(self, data, **kwargs):
+        # For test time only
+        mean, logvar = self.encode(data)
+        z = self.reparameterize(mean, logvar)
+        
+        return self.decode(z, apply_sigmoid=True)
+    
+    def train_step(self, x):
+        with tf.GradientTape() as tape:
+            loss = self.compute_loss(x)
+
+        gradients = tape.gradient(loss, self.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+
+        # Monitor loss
+        self.loss_tracker.update_state(loss)
+        return {"loss": self.loss_tracker.result()}
+    
+    def test_step(self, x):
+        loss = self.compute_loss(x)
+        self.loss_tracker.update_state(loss)
+        return {'loss': self.loss_tracker.result()}
+
+    @staticmethod
+    def log_normal_pdf(sample, mean, logvar, raxis=1):
+        log2pi = tf.math.log(2. * np.pi)
+        
+        return tf.reduce_sum(
+            -.5 * ((sample - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi),
+            axis=raxis)
 
 
-optimizer = tf.keras.optimizers.Adam(1e-3)
-
-
-def log_normal_pdf(sample, mean, logvar, raxis=1):
-    log2pi = tf.math.log(2. * np.pi)
-    return tf.reduce_sum(
-        -.5 * ((sample - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi),
-        axis=raxis)
-
-
-def compute_loss(model, x):
-    mean, logvar = model.encode(x)
-    z = model.reparameterize(mean, logvar)
-    x_logit = model.decode(z)
-    cross_ent = tf.nn.sigmoid_cross_entropy_with_logits(logits=x_logit, labels=x)
-    logpx_z = -tf.reduce_sum(cross_ent, axis=[1, 2, 3])
-    logpz = log_normal_pdf(z, 0., 0.)
-    logqz_x = log_normal_pdf(z, mean, logvar)
-    return -tf.reduce_mean(logpx_z + logpz - logqz_x)
-
-
-@tf.function
-def train_step(model, x, optimizer):
-    """Executes one training step and returns the loss.
-
-  This function computes the loss and gradients, and uses the latter to
-  update the model's parameters.
-  """
-    with tf.GradientTape() as tape:
-        loss = compute_loss(model, x)
-    gradients = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    def compute_loss(self, x):
+        mean, logvar = self.encode(x)
+        z = self.reparameterize(mean, logvar)
+        x_logit = self.decode(z)
+        
+        cross_ent = tf.nn.sigmoid_cross_entropy_with_logits(logits=x_logit, labels=x)
+        logpx_z = -tf.reduce_sum(cross_ent, axis=[1, 2, 3])
+        logpz = self.log_normal_pdf(z, 0., 0.)
+        logqz_x = self.log_normal_pdf(z, mean, logvar)
+        
+        return -tf.reduce_mean(logpx_z + logpz - logqz_x)
