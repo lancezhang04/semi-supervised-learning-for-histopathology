@@ -104,7 +104,7 @@ def main():
     print('total patches generated:', total_patches_generated)
 
     with open(os.path.join(TARGET_DIR, 'meta.json'), 'w') as file:
-        json.dump(total_tissue_type_counts, file)
+        json.dump(total_tissue_type_counts, file, indent=4)
     print(total_tissue_type_counts)
 
 

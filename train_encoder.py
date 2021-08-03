@@ -3,9 +3,8 @@ import yaml
 import json
 import os
 
-from silence_tensorflow import silence_tensorflow
-silence_tensorflow()
-
+# from silence_tensorflow import silence_tensorflow
+# silence_tensorflow()
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping
 import tensorflow_addons as tfa
@@ -33,8 +32,8 @@ def configure_saving(model_name):
         if input_ != 'Y':
             raise ValueError
 
-    with open(os.path.join(save_dir, 'config.json'), 'w') as file:
-        json.dump(config, file, indent=4)
+    with open(os.path.join(save_dir, 'config.json'), 'w') as f:
+        json.dump(config, f, indent=4)
 
     return save_dir
 
@@ -99,7 +98,7 @@ def load_dataset():
         while True:
             yield next(iter(dataset))
 
-    steps_per_epoch = len(datagen)
+    steps_per_epoch = len(datagens[0])
     config['steps_per_epoch'] = steps_per_epoch
     print('Steps per epoch:', steps_per_epoch)
 
@@ -178,8 +177,8 @@ def main(model_name=None):
     )
 
     # Save training history
-    with open(os.path.join(save_dir, 'history.json'), 'wb') as file:
-        json.dump(history.history, file)
+    with open(os.path.join(save_dir, 'history.json'), 'wb') as f:
+        json.dump(history.history, f)
 
     # Save weights for the best ResNet backbone
     resnet_enc.load_weights(os.path.join(save_dir, 'encoder.h5'))

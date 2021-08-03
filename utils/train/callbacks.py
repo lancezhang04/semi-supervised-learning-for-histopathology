@@ -20,6 +20,7 @@ class BTDebug(Callback):
         
     def on_epoch_end(self, epoch, logs=None):
         assert self.datagens[0].batch_index == self.datagens[1].batch_index
+        print('Data generators are in sync, current index:', self.datagens[0].batch_index)
 
 
 class VAECheckpoint(Callback):
