@@ -114,14 +114,15 @@ if __name__ == '__main__':
 
     PATCH_SIZE = 224
     STEP_SIZE = int(0.5 * PATCH_SIZE)
-    THRESHOLD = 0.35
+    THRESHOLD = 0.3
     INCLUDE_EXCLUDE = False
 
-    TARGET_DIR = 'datasets/tissue_classification/dataset_main_classes_0.35'
+    TARGET_DIR = 'datasets/tissue_classification/dataset_main_classes_0.3'
     GENERATE_ENCODER_DATASET = False
     ENCODER_TARGET_DIR = 'datasets/tissue_classification/dataset_encoder'
 
     CLASSES_MODE = ['main', 'super'][0]  # use the `main_classes` or `super_classes` column
     WHITESPACE_CODE = 8 if CLASSES_MODE == 'super' else 11
 
+    print('Saving dataset at:', TARGET_DIR)
     main()

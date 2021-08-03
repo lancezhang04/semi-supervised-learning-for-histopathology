@@ -15,10 +15,12 @@ use_class_weight  : False
 root_save_dir     : 'trained_models/classifiers'
 
 #Model parameters
-cifar_resnet      : False
-projector_dim     : 2048
+encoder_type      : 'resnet50'    # One of ['cifar', 'resnet50', 'vae']
+model_type        : 'supervised'  # One of ['supervised', 'barlow', or 'barlow_fine_tuned']
+
+projector_dim     : 2048  # For resnet encoder
+latent_dim        : 64    # For vae encoder
 pretrained_dir    : None
-model_type        : 'supervised'
 
 #Dataset parameters
 image_shape       : [224, 224, 3]

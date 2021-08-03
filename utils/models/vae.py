@@ -26,6 +26,48 @@ def upsample_block(filters, kernel_size=3, name=None):
     return block
 
 
+def build_encoder(image_shape, latent_dim):
+    input_ = tf.keras.layers.InputLayer(image_shape)
+    layers = [input_]
+
+    for i, filters in enumerate([32, 64, 128, 256, 512]):
+        layers.append(downsample_block(filters, name=f'conv_block_{i}'))
+
+    layers.append(tf.keras.Sequential([
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(512),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.LeakyReLU(),
+        # Half is mean, half is logvar
+        tf.keras.layers.Dense(latent_dim * 2)
+    ]))
+
+    return tf.keras.Sequential(layers, name='projector')
+
+
+def build_decoder(image_shape, latent_dim):
+    input_ = tf.keras.layers.InputLayer(latent_dim)
+    layers = [
+        input_,
+        tf.keras.Sequential([
+            # The impact of this Dense layer needs to be investigated further lol
+            tf.keras.layers.Dense(12544),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.LeakyReLU(),
+            # For an input shape of (224, 224, 3)
+            tf.keras.layers.Reshape((7, 7, 256))
+        ], name='projector')
+    ]
+
+    for i, filters in enumerate([256, 128, 64, 32, 16]):
+        layers.append(upsample_block(filters, name=f'conv_block_{i}'))
+
+    layers.append(tf.keras.layers.Conv2D(filters=image_shape[-1], kernel_size=3,
+                                         padding='same', name='conv_output'))
+
+    return tf.keras.Sequential(layers)
+
+
 class CVAE(tf.keras.Model):
     """Convolutional variational autoencoder."""
 
@@ -34,9 +76,9 @@ class CVAE(tf.keras.Model):
         self.latent_dim = latent_dim
         self.image_shape = image_shape
 
-        self.encoder = self.build_encoder()
-        self.decoder = self.build_decoder()
-        
+        self.encoder = build_encoder(image_shape, latent_dim)
+        self.decoder = build_decoder(image_shape, latent_dim)
+
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
 
     @tf.function
@@ -62,53 +104,13 @@ class CVAE(tf.keras.Model):
             return probs
         return logits
 
-    def build_encoder(self):
-        input_ = tf.keras.layers.InputLayer(self.image_shape)
-        layers = [input_]
-
-        for i, filters in enumerate([32, 64, 128, 256, 512]):
-            layers.append(downsample_block(filters, name=f'conv_block_{i}'))
-
-        layers.append(tf.keras.Sequential([
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(512),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.LeakyReLU(),
-            # Half is mean, half is logvar
-            tf.keras.layers.Dense(self.latent_dim * 2)
-        ]))
-
-        return tf.keras.Sequential(layers, name='projector')
-
-    def build_decoder(self):
-        input_ = tf.keras.layers.InputLayer(self.latent_dim)
-        layers = [
-            input_,
-            tf.keras.Sequential([
-                # The impact of this Dense layer needs to be investigated further lol
-                tf.keras.layers.Dense(12544),
-                tf.keras.layers.BatchNormalization(),
-                tf.keras.layers.LeakyReLU(),
-                # For an input shape of (224, 224, 3)
-                tf.keras.layers.Reshape((7, 7, 256))
-            ], name='projector')
-        ]
-
-        for i, filters in enumerate([256, 128, 64, 32, 16]):
-            layers.append(upsample_block(filters, name=f'conv_block_{i}'))
-
-        layers.append(tf.keras.layers.Conv2D(filters=self.image_shape[-1], kernel_size=3,
-                                             padding='same', name='conv_output'))
-
-        return tf.keras.Sequential(layers)
-    
     def call(self, data, **kwargs):
         # For test time only
         mean, logvar = self.encode(data)
         z = self.reparameterize(mean, logvar)
-        
+
         return self.decode(z, apply_sigmoid=True)
-    
+
     def train_step(self, x):
         with tf.GradientTape() as tape:
             loss = self.compute_loss(x)
@@ -119,7 +121,7 @@ class CVAE(tf.keras.Model):
         # Monitor loss
         self.loss_tracker.update_state(loss)
         return {"loss": self.loss_tracker.result()}
-    
+
     def test_step(self, x):
         loss = self.compute_loss(x)
         self.loss_tracker.update_state(loss)
@@ -128,20 +130,44 @@ class CVAE(tf.keras.Model):
     @staticmethod
     def log_normal_pdf(sample, mean, logvar, raxis=1):
         log2pi = tf.math.log(2. * np.pi)
-        
+
         return tf.reduce_sum(
             -.5 * ((sample - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi),
             axis=raxis)
-
 
     def compute_loss(self, x):
         mean, logvar = self.encode(x)
         z = self.reparameterize(mean, logvar)
         x_logit = self.decode(z)
-        
+
         cross_ent = tf.nn.sigmoid_cross_entropy_with_logits(logits=x_logit, labels=x)
         logpx_z = -tf.reduce_sum(cross_ent, axis=[1, 2, 3])
         logpz = self.log_normal_pdf(z, 0., 0.)
         logqz_x = self.log_normal_pdf(z, mean, logvar)
-        
+
         return -tf.reduce_mean(logpx_z + logpz - logqz_x)
+
+
+def get_classifier(config, encoder_weights_path=None):
+    # Pre-trained encoder from a variational autoencoder
+    encoder = build_encoder(
+        image_shape=config['image_shape'],
+        latent_dim=config['latent_dim']
+    )
+    if encoder_weights_path is not None:
+        encoder.load_weights(encoder_weights_path)
+
+    # Classification head (a single FC layer)
+    clf_head = tf.keras.layers.Dense(
+        units=config['num_classes'],
+        activation='softmax',
+        kernel_initializer='he_normal'
+    )
+
+    inputs = tf.keras.layers.Input(shape=config['image_shape'])
+    x = encoder(inputs)
+    outputs = clf_head(x)
+
+    model = tf.keras.models.Model(inputs=inputs, outputs=outputs)
+
+    return model
