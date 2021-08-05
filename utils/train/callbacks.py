@@ -64,6 +64,7 @@ class EncoderCheckpoint(Callback):
             self.min_loss = logs['loss']
             print('\nSaving model, new lowest loss:', self.min_loss)
             self.resnet_enc.save_weights(self.save_dir)
+            print('Finished saving ==> doing great!')  # debug message haha
 
 
 # Taken from here: https://www.jeremyjordan.me/nn-learning-rate/

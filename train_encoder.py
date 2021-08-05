@@ -24,6 +24,7 @@ def configure_saving(model_name):
     print('Model name:', model_name)
 
     save_dir = os.path.join(config['root_save_dir'], model_name)
+    config['save_dir'] = save_dir
 
     try:
         os.makedirs(save_dir, exist_ok=False)
@@ -167,8 +168,8 @@ def main(model_name=None):
     
     debug = BTDebug(datagens)
     callbacks.append(debug)
-
-    print('\nSteps per epoch:', config['steps_per_epoch'])
+    
+    log_config(config, save_config=True)
     history = barlow_twins.fit(
         dataset,
         epochs=config['epochs'],
@@ -192,14 +193,12 @@ if __name__ == '__main__':
     # Adjust learning rate according to the batch size
     config['lr_base'] = config['lr_base'] * config['batch_size'] / 256
     config['epochs'] = 100
-
-    # For running on local machine
-#     config['gpu_used'] = None
-#     config['batch_size'] = 256
-#     config['image_shape'] = (224, 224, 3)
-
+    
+    # Set random seed
     np.random.seed(config['random_seed'])
     tf.random.set_seed(config['random_seed'])
-
-    log_config(config)
-    main(model_name='encoder_resnet50_lamb')
+    
+    # Training is getting stuck after the second epoch... can't figure out why!
+    config['use_lamb'] = True
+    config['batch_size'] = 64 # Maybe reducing the batch size will help?
+    main(model_name='encoder_resnet50_test')

@@ -44,7 +44,7 @@ DATASETS_CONFIG['tissue_8_0.3'] = {
 
     'groups': {
         'Tumor': 'tumor',
-        'WhiteSpace': 'white_space',
+        'Fat': 'fat',
         'NecroticDebris': 'necrotic_debris',
         'TILsDense': 'tils',
         'StromaNOS': 'stroma',
