@@ -60,12 +60,12 @@ class WarmUpCosine(tf.keras.optimizers.schedules.LearningRateSchedule):
         )
 
 
-def get_decay_fn(lr_base, epochs, steps_per_epoch):
+def get_decay_fn(base_lr, epochs, steps_per_epoch):
     warmup_epochs = int(epochs * 0.1)
     warmup_steps = int(warmup_epochs * steps_per_epoch)
 
     lr_decay_fn = WarmUpCosine(
-        learning_rate_base=lr_base,
+        learning_rate_base=base_lr,
         total_steps=epochs * steps_per_epoch,
         warmup_learning_rate=0.0,
         warmup_steps=warmup_steps

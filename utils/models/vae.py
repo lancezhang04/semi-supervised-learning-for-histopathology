@@ -148,14 +148,15 @@ class CVAE(tf.keras.Model):
         return -tf.reduce_mean(logpx_z + logpz - logqz_x)
 
 
-def get_classifier(config, encoder_weights_path=None):
+def get_classifier(config):
     # Pre-trained encoder from a variational autoencoder
     encoder = build_encoder(
         image_shape=config['image_shape'],
         latent_dim=config['latent_dim']
     )
-    if encoder_weights_path is not None:
-        encoder.load_weights(encoder_weights_path)
+    if config['encoder_weights_path'] is not None:
+        print('Loading weights from:', config['encoder_weights_path'])
+        encoder.load_weights(config['encoder_weights_path'])
 
     # Classification head (a single FC layer)
     clf_head = tf.keras.layers.Dense(
