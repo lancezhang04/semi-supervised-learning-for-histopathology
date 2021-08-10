@@ -1,25 +1,24 @@
-from silence_tensorflow import silence_tensorflow
-silence_tensorflow()
+import yaml
+import json
+import os
 
+# from silence_tensorflow import silence_tensorflow
+# silence_tensorflow()
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense
 from tensorflow.keras.models import Model
 from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
-from train_classifier import load_model
-from utils.train.visualization import analyze_history
-from utils.models import resnet_cifar, resnet
-from utils.datasets import get_generators
-from sklearn.metrics import confusion_matrix, roc_auc_score, f1_score
 import matplotlib.pyplot as plt
 from seaborn import heatmap
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
-import yaml
-import json
-import os
-
+from train_classifier import load_model
+from utils.train.visualization import analyze_history
+from utils.models import resnet_cifar, resnet
+from utils.datasets import get_generators
+from sklearn.metrics import confusion_matrix, roc_auc_score, f1_score
 from config.datasets_config import DATASETS_CONFIG
 
 
@@ -69,7 +68,6 @@ def create_conf_matrix(datagen, model, classes):
 
     conf_matrix = confusion_matrix(np.argmax(all_labels, axis=-1), np.argmax(all_preds, axis=-1), normalize='true')
     conf_matrix = pd.DataFrame(conf_matrix, columns=classes, index=classes)
-    # confusion_matrix.set_index(CLASSES)
 
     plt.figure(figsize=(10, 8))
     heatmap(conf_matrix, annot=True)
@@ -81,11 +79,6 @@ def create_conf_matrix(datagen, model, classes):
     for average in ['micro', 'macro', 'weighted']:
         score = roc_auc_score(all_labels, all_preds, average=average)
         print(average.title(), 'AUROC:', round(score, 4))
-        
-    # Calculate f1 scores
-#     for average in ['micro', 'macro', 'weighted']:
-#         score = f1_score(all_labels, all_preds, average=average)
-#         print(average.title(), 'F1 score:', round(score, 4))
 
 
 def main():

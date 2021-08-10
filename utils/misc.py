@@ -1,4 +1,4 @@
-import pickle
+import yaml
 import os
 
 
@@ -8,5 +8,5 @@ def log_config(config, ljust=50, save_config=False):
     print()
 
     if save_config:
-        with open(os.path.join(config['save_dir'], 'config.pickle'), 'wb') as f:
-            pickle.dump(config, f)
+        with open(os.path.join(config['save_dir'], 'config.yaml'), 'w') as f:
+            yaml.dump(config, f)

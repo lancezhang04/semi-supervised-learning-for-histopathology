@@ -6,21 +6,38 @@ import numpy as np
 import os
 
 
-class BTDebug(Callback):
+class ResetBatchIndex(Callback):
     """
-    This callback checks that the batch_index for the two datagenerators are the same
-    at the end of each epoch to make sure that matching images are fed to the encoder.
-    
-    This has been a issue multiple times in the course of the project so I decided to
-    just make a custom callback to monitor it
+    Resets the batch indeces of data generators after training ends
+    There is currently a bug where the generators advance for three/four more steps
+    after training ends (cause unknown)
     """
     def __init__(self, datagens):
         super().__init__()
         self.datagens = datagens
         
+    def on_train_end(self, logs=None):
+        print('Current batch indeces:', [gen.batch_index for gen in self.datagens])
+        print('Resetting to 0')
+        
+        datagens[0].batch_index = 0
+        datagens[1].batch_index = 0
+        
+
+class Logger(Callback):
+    """
+    Simple way to monitor jupyter notebook progress when cell output is disconnected
+    """
+    def __init__(self):
+        super().__init__()
+        
+    def on_batch_end(self, batch, logs=None):
+        with open('logs.txt', 'a') as f:
+            f.write(str(batch) + ' ')
+            
     def on_epoch_end(self, epoch, logs=None):
-        assert self.datagens[0].batch_index == self.datagens[1].batch_index
-        print('Data generators are in sync, current index:', self.datagens[0].batch_index)
+        with open('logs.txt', 'a') as f:
+            f.write('\n\n')
 
 
 class VAECheckpoint(Callback):

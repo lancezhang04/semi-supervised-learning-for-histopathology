@@ -55,3 +55,20 @@ DATASETS_CONFIG['tissue_8_0.3'] = {
     },
     'major_groups': ['tumor', 'stroma']
 }
+
+DATASETS_CONFIG['tissue_6_0.3'] = {
+    'type': 'tissue',
+
+    'split_file_path': 'datasets/tissue_classification/fold_test.csv',
+    'dataset_dir': 'datasets/tissue_classification/dataset_main_0.3',
+
+    'groups': {
+        'Tumor': 'tumor',
+        'Fat': 'fat',
+        'NecroticDebris': 'necrotic_debris',
+        'TILsDense': 'tils',
+        'StromaNOS': 'stroma',
+        'PlasmaCellInfiltrate': 'plasma_cell_infiltrate'
+    },
+    'major_groups': ['tumor', 'stroma']
+}
