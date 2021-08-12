@@ -5,6 +5,9 @@ import os
 
 
 def analyze_history(history_path, save_visualization=True, return_es_stats=True, root_save_dir='visualizations'):
+    """
+    Visualize the training history of a model and print out model losses/metrics at the early stop epoch
+    """
     with open(history_path, 'rb') as file:
         history = pickle.load(file)
 
@@ -28,7 +31,3 @@ def analyze_history(history_path, save_visualization=True, return_es_stats=True,
 
     if return_es_stats:
         return {key: round(history[key][early_stop_epoch], 5) for key in history.keys()}
-
-
-if __name__ == '__main__':
-    analyze_history('../../trained_models/resnet_classifiers/1024/4/history.pickle')

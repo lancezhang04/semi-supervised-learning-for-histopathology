@@ -1,4 +1,4 @@
-# Based on tutorial: https://www.tensorflow.org/tutorials/generative/cvae
+# Modifed from: https://www.tensorflow.org/tutorials/generative/cvae
 
 import tensorflow as tf
 import numpy as np
@@ -50,7 +50,7 @@ def build_decoder(image_shape, latent_dim):
     layers = [
         input_,
         tf.keras.Sequential([
-            # The impact of this Dense layer needs to be investigated further lol
+            # The impact of this Dense layer needs to be investigated further
             tf.keras.layers.Dense(12544),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.LeakyReLU(),

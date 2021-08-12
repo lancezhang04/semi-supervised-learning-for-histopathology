@@ -1,6 +1,6 @@
 from tensorflow_addons.metrics import MatthewsCorrelationCoefficient
-from tensorflow.keras.metrics import AUC, TopKCategoricalAccuracy
 from tensorflow_addons.optimizers import SGDW, MultiOptimizer
+from tensorflow.keras.metrics import AUC, TopKCategoricalAccuracy
 from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 
@@ -23,12 +23,8 @@ def get_optimizer(config_dict, base_lr):
         raise ValueError
 
 
-def load_model(config_dict, evaluation=False):
-    """
-    @param config_dict:     the configuration for the model
-    @param evaluation:      whether or not the model is loaded for testing
-    @return:                compiled classification model
-    """
+def load_model(config_dict):
+    """Load and compile a classification model based on the given configuration"""
     strategy = tf.distribute.MirroredStrategy(config_dict['gpu_used'])
     print('Number of devices:', strategy.num_replicas_in_sync)
 
@@ -41,7 +37,7 @@ def load_model(config_dict, evaluation=False):
         }
         model = model_build_functions[config_dict['model_type']](config_dict)
 
-        # Set up optimizers
+        # Set up optimizer and learning rate scheduler
         if config_dict['lr_scheduler'] == 'cosine':
             optimizers_and_layers = [
                 (get_optimizer(config_dict, config_dict['encoder_lr']), model.layers[1]),  # encoder
@@ -57,9 +53,9 @@ def load_model(config_dict, evaluation=False):
             elif config_dict['optimizer'] == 'sgdw':
                 optimizer = SGDW(learning_rate=config_dict['head_lr'], momentum=0.9, weight_decay=0)
             else:
-                raise ValueError
+                raise ValueError(f'"{config_dict["optimizer"]}" is not a supported optimizer type, please choose either "adam" or "sgdw"')
         else:
-            raise ValueError
+            raise ValueError(f'"{config_dict["lr_scheduler"]}" is not a supported scheduler type, please choose either "cosine" or "plateau"')
         
         # Print model summary and compile model
         print()

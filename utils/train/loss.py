@@ -1,3 +1,5 @@
+# Acquired from: https://github.com/sayakpaul/Barlow-Twins-TF
+
 import tensorflow as tf
 
 
@@ -14,18 +16,18 @@ def normalize_repr(z):
 
 
 def compute_loss(z_a, z_b, lambd):
-    # Get batch size and representation dimension.
+    # Get batch size and representation dimension
     batch_size = tf.cast(tf.shape(z_a)[0], z_a.dtype)
     repr_dim = tf.shape(z_a)[1]
 
-    # Normalize the representations along the batch dimension.
+    # Normalize the representations along the batch dimension
     z_a_norm = normalize_repr(z_a)
     z_b_norm = normalize_repr(z_b)
 
-    # Cross-correlation matrix.
+    # Cross-correlation matrix
     c = tf.matmul(z_a_norm, z_b_norm, transpose_a=True) / batch_size
 
-    # Loss.
+    # Loss
     on_diag = tf.linalg.diag_part(c) + (-1)
     on_diag = tf.reduce_sum(tf.pow(on_diag, 2))
     off_diag = off_diagonal(c)

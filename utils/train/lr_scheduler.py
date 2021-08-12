@@ -1,8 +1,4 @@
-"""
-Acquired from: https://github.com/sayakpaul/Barlow-Twins-TF/blob/main/lr_scheduler.py
-References:
-	* https://www.kaggle.com/ashusma/training-rfcx-tensorflow-tpu-effnet-b2
-"""
+# Acquired from: https://github.com/sayakpaul/Barlow-Twins-TF
 
 import tensorflow as tf
 import numpy as np

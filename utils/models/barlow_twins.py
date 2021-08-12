@@ -1,3 +1,5 @@
+# Modified from: https://github.com/sayakpaul/Barlow-Twins-TF
+
 from utils.train.loss import compute_loss
 import tensorflow as tf
 
