@@ -71,7 +71,7 @@ def load_model(config_dict, evaluation=False):
                 'acc',
                 TopKCategoricalAccuracy(k=2, name="top_2_accuracy"),
                 MatthewsCorrelationCoefficient(num_classes=config_dict['num_classes'], name='MCC'),
-                AUC(multi_label=True, name='auc')
+                AUC(multi_label=True, name='auc', num_thresholds=2000)
             ]
         )
 

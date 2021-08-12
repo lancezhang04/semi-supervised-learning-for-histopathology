@@ -11,7 +11,9 @@ import os
 
 
 def get_encoder(input_shape=(224, 224, 3), weights=None):
-    # Returns a ResNet50 encoder without the classification head + average pooling
+    # Returns a ResNet50 encoder without the classification head
+    # The ResNet50's output undergoes average pooling, resulting in a 2048-d vector
+    
     encoder = ResNet50V2(
         include_top=False,
         input_shape=input_shape,
