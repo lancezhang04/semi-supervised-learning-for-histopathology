@@ -1,6 +1,7 @@
 from tensorflow.keras.callbacks import Callback
 import tensorflow.keras.backend as K
 import tensorflow as tf
+from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -32,13 +33,15 @@ class Logger(Callback):
     """
     def __init__(self):
         super().__init__()
+        self.log_file_name = datetime.now().strftime('logs_%m-%d-%H:%M.txt')
+        print('Logger initialized:', self.log_file_name)
         
     def on_batch_end(self, batch, logs=None):
-        with open('logs.txt', 'a') as f:
+        with open(self.log_file_name, 'a') as f:
             f.write(str(batch) + ' ')
             
     def on_epoch_end(self, epoch, logs=None):
-        with open('logs.txt', 'a') as f:
+        with open(self.log_file_name, 'a') as f:
             f.write(f'\nEpoch completed: {epoch}\n')
 
 

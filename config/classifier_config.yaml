@@ -26,7 +26,7 @@ encoder_trainable       : True
 #Dataset parameters
 image_shape             : [224, 224, 3]
 train_split             : 0.1
-validation_split        : 0.15
+validation_split        : 0.2
 dataset_type            : 'tissue_6_0.3'
 
 # Assigned in script
