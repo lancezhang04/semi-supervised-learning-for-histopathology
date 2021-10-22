@@ -16,7 +16,7 @@ root_save_dir     : 'trained_models/encoders'
 
 # Model parameters
 cifar_resnet      : False
-projector_dim     : 2048
+projector_dim     : 4096
 filter_size       : 23
 weights           : ~
 
